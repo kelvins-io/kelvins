@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gitee.com/kelvins-io/kelvins-service-config/configcenter"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
@@ -13,7 +12,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"strings"
 )
 
@@ -23,12 +21,6 @@ type Conn struct {
 }
 
 func NewConn(serviceName string) (*Conn, error) {
-	center := configcenter.NewConfigCenterV2(serviceName)
-	certFile, err := center.GetCertPemPath()
-	if err != nil {
-		return nil, fmt.Errorf("NewConn.center.GetCertPemPath err: %v", err)
-	}
-
 	etcdServerUrls := config.GetEtcdV3ServerURLs()
 	if len(etcdServerUrls) == 0 {
 		return nil, fmt.Errorf("Can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
