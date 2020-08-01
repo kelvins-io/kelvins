@@ -17,9 +17,9 @@ import (
 
 // RunQueueApplication runs queue application.
 func RunQueueApplication(application *kelvins.QueueApplication) {
-	//if application.Name == "" {
-	//	logging.Fatal("Application name can't not be empty")
-	//}
+	if application.Name == "" {
+		logging.Fatal("Application name can't not be empty")
+	}
 
 	flag.Parse()
 	application.LoggerRootPath = *loggerPath

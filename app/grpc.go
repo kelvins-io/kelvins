@@ -22,9 +22,9 @@ import (
 
 // RunGRPCApplication runs grpc application.
 func RunGRPCApplication(application *kelvins.GRPCApplication) {
-	//if application.Name == "" {
-	//	logging.Fatal("Application name can't not be empty")
-	//}
+	if application.Name == "" {
+		logging.Fatal("Application name can't not be empty")
+	}
 
 	flag.Parse()
 	application.Port = *port

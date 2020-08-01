@@ -16,9 +16,9 @@ import (
 )
 
 func RunHTTPApplication(application *kelvins.HTTPApplication) {
-	//if application.Name == "" {
-	//	logging.Fatal("Application name can't not be empty")
-	//}
+	if application.Name == "" {
+		logging.Fatal("Application name can't not be empty")
+	}
 
 	flag.Parse()
 	application.Port = *port

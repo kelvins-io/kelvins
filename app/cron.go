@@ -15,9 +15,9 @@ import (
 
 // RunCronApplication runs cron application.
 func RunCronApplication(application *kelvins.CronApplication) {
-	//if application.Name == "" {
-	//	logging.Fatal("Application name can't not be empty")
-	//}
+	if application.Name == "" {
+		logging.Fatal("Application name can't not be empty")
+	}
 
 	flag.Parse()
 	application.LoggerRootPath = *loggerPath

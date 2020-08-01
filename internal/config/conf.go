@@ -38,7 +38,6 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.ServerSetting = new(setting.ServerSettingS)
 			MapConfig(sectionName, kelvins.ServerSetting)
-			application.Name = kelvins.ServerSetting.ServerName
 			continue
 		}
 		if sectionName == SectionLogger {
