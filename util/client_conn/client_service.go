@@ -18,7 +18,7 @@ import (
 const LOCALHOST = "127.0.0.1"
 
 type Conn struct {
-	ServerAddr string
+	ServerName string
 	ServerPort string
 }
 
@@ -37,10 +37,9 @@ func NewConn(serviceName string) (*Conn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("serviceConfig.GetConfig err: %v", err)
 	}
-	fmt.Println("调用服务 currentConfig.ServicePort ==", currentConfig.ServicePort)
 
 	return &Conn{
-		ServerAddr: LOCALHOST,
+		ServerName: serviceName,
 		ServerPort: currentConfig.ServicePort,
 	}, nil
 }
@@ -48,7 +47,7 @@ func NewConn(serviceName string) (*Conn, error) {
 func (c *Conn) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
-	target := c.ServerAddr + ":" + c.ServerPort
+	target := c.ServerName + ":" + c.ServerPort
 
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithUnaryInterceptor(
