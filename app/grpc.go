@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"gitee.com/kelvins-io/common/env"
+	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
@@ -86,12 +87,14 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	serviceLB := slb.NewService(etcdServerUrls, grpcApp.Name)
 	serviceConfig := etcdconfig.NewServiceConfig(serviceLB)
 	if env.IsDevMode() {
+		fmt.Println("开发模式")
 		serviceConfigs, err := serviceConfig.GetConfigs()
 		if err != nil {
 			return fmt.Errorf("serviceConfig.GetConfigs err: %v", err)
 		}
 
 		currentKey := serviceConfig.GetKeyName(grpcApp.Name)
+		fmt.Println("serviceConfigs==", json.MarshalToStringNoError(serviceConfigs))
 		for key, value := range serviceConfigs {
 			if currentKey == key {
 				currentPort = value.ServicePort
@@ -102,7 +105,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 				return fmt.Errorf("The service port is duplicated, please try again")
 			}
 		}
-
+		fmt.Println("写入currentPort==", currentPort)
 		err = serviceConfig.WriteConfig(etcdconfig.Config{
 			ServiceVersion: kelvins.Version,
 			ServicePort:    currentPort,

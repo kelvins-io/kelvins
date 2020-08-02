@@ -15,12 +15,18 @@ import (
 	"strings"
 )
 
+const LOCALHOST = "127.0.0.1"
+
 type Conn struct {
-	ServerName string
+	ServerAddr string
 	ServerPort string
 }
 
 func NewConn(serviceName string) (*Conn, error) {
+	serviceNames := strings.Split(serviceName, "-")
+	if len(serviceNames) < 1 {
+		return nil, errors.New("NewConn.serviceNames is empty")
+	}
 	etcdServerUrls := config.GetEtcdV3ServerURLs()
 	if len(etcdServerUrls) == 0 {
 		return nil, fmt.Errorf("Can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
@@ -31,13 +37,10 @@ func NewConn(serviceName string) (*Conn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("serviceConfig.GetConfig err: %v", err)
 	}
+	fmt.Println("调用服务 currentConfig.ServicePort ==", currentConfig.ServicePort)
 
-	serviceNames := strings.Split(serviceName, "-")
-	if len(serviceNames) < 1 {
-		return nil, errors.New("NewConn.serviceNames is empty")
-	}
 	return &Conn{
-		ServerName: serviceName,
+		ServerAddr: LOCALHOST,
 		ServerPort: currentConfig.ServicePort,
 	}, nil
 }
@@ -45,7 +48,7 @@ func NewConn(serviceName string) (*Conn, error) {
 func (c *Conn) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
-	target := c.ServerName + ":" + c.ServerPort
+	target := c.ServerAddr + ":" + c.ServerPort
 
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithUnaryInterceptor(
