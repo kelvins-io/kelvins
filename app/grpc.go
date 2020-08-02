@@ -130,11 +130,13 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		}
 	}
 	if grpcApp.RegisterGateway != nil {
+		var opts []grpc.DialOption
+		opts = append(opts, grpc.WithInsecure())
 		err = grpcApp.RegisterGateway(
 			context.Background(),
 			grpcApp.GatewayServeMux,
 			kelvins.ServerSetting.EndPoint,
-			[]grpc.DialOption{},
+			opts,
 		)
 		if err != nil {
 			return fmt.Errorf("grpcApp.RegisterGateway err: %v", err)
