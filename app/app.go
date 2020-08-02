@@ -34,9 +34,6 @@ func initApplication(application *kelvins.Application) error {
 // setupCommonVars setup application global vars.
 func setupCommonVars(application *kelvins.Application) error {
 	var err error
-	if kelvins.ServerSetting != nil && kelvins.ServerSetting.ServerName != "" {
-		application.Name = kelvins.ServerSetting.ServerName
-	}
 
 	if kelvins.MysqlSetting != nil && kelvins.MysqlSetting.Host != "" {
 		kelvins.GORM_DBEngine, err = setup.NewMySQLWithGORM(kelvins.MysqlSetting)

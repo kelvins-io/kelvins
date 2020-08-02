@@ -2,8 +2,6 @@ package setting
 
 // ServerSettingS defines for grpc server.
 type ServerSettingS struct {
-	ServerName           string
-	EtcdServer           string
 	EndPoint             string
 	IsRecordCallResponse bool
 }
