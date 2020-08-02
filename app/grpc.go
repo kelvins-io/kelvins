@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"gitee.com/kelvins-io/common/env"
-	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
