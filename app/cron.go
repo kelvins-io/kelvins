@@ -92,7 +92,7 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 				logger: cronApp.CronLogger,
 				name:   j.Name,
 			}
-			err = cronApp.Cron.AddFunc(j.Spec, job.warpJob(j.Job))
+			_, err = cronApp.Cron.AddFunc(j.Spec, job.warpJob(j.Job))
 			if err != nil {
 				return fmt.Errorf("Cron.AddFunc err: %v", err)
 			}

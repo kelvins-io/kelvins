@@ -17,6 +17,7 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 	"net"
+	"net/http"
 	"strconv"
 )
 
@@ -151,13 +152,18 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	// 7. apollo hot update listen
 	//config.TriggerApolloHotUpdateListen(grpcApp.Application)
 
+	// run mux
+	go func() {
+		http.ListenAndServe(":"+currentPort, grpcApp.Mux)
+	}()
+
 	// 8. start server
 	logging.Infof("Start http server listen %s", kelvins.ServerSetting.EndPoint)
 	conn, err := net.Listen("tcp", kelvins.ServerSetting.EndPoint)
 	if err != nil {
 		return fmt.Errorf("TCP Listen err: %v", err)
 	}
-	err = grpcApp.HttpServer.Serve(conn)
+	err = grpcApp.GRPCServer.Serve(conn)
 	if err != nil {
 		return fmt.Errorf("HttpServer serve err: %v", err)
 	}

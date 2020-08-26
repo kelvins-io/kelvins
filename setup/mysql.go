@@ -70,14 +70,15 @@ func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 		db.DB().SetConnMaxLifetime(time.Duration(mysqlSetting.ConnMaxLifeSecond) * time.Second)
 	}
 
-	maxIdle := 10
-	maxOpen := 10
-	if mysqlSetting.MaxOpen > 0 && mysqlSetting.MaxIdle > 0 {
-		maxIdle = mysqlSetting.MaxIdle
-		maxOpen = mysqlSetting.MaxOpen
+	db.DB().SetMaxIdleConns(10)
+	if mysqlSetting.MaxIdle > 0 {
+		db.DB().SetMaxIdleConns(mysqlSetting.MaxIdle)
 	}
-	db.DB().SetMaxIdleConns(maxIdle)
-	db.DB().SetMaxOpenConns(maxOpen)
+
+	db.DB().SetMaxOpenConns(10)
+	if mysqlSetting.MaxOpen > 0 {
+		db.DB().SetMaxOpenConns(mysqlSetting.MaxOpen)
+	}
 
 	return db, nil
 }
@@ -138,15 +139,15 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 		engine.SetConnMaxLifetime(time.Duration(mysqlSetting.ConnMaxLifeSecond) * time.Second)
 	}
 
-	maxIdle := 10
-	maxOpen := 10
-	if mysqlSetting.MaxOpen > 0 && mysqlSetting.MaxIdle > 0 {
-		maxIdle = mysqlSetting.MaxIdle
-		maxOpen = mysqlSetting.MaxOpen
+	engine.SetMaxIdleConns(10)
+	if mysqlSetting.MaxIdle > 0 {
+		engine.SetMaxIdleConns(mysqlSetting.MaxIdle)
 	}
 
-	engine.SetMaxIdleConns(maxIdle)
-	engine.SetMaxOpenConns(maxOpen)
+	engine.SetMaxOpenConns(10)
+	if mysqlSetting.MaxOpen > 0 {
+		engine.SetMaxOpenConns(mysqlSetting.MaxOpen)
+	}
 
 	return engine, nil
 }

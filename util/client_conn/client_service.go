@@ -9,13 +9,11 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"strings"
 )
-
-const LOCALHOST = "127.0.0.1"
 
 type Conn struct {
 	ServerName string
@@ -47,7 +45,8 @@ func NewConn(serviceName string) (*Conn, error) {
 func (c *Conn) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
-	target := c.ServerName + ":" + c.ServerPort
+	//target := c.ServerName + ":" + c.ServerPort
+	target := ":" + c.ServerPort
 
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithUnaryInterceptor(
