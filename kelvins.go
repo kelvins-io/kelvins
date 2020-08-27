@@ -7,7 +7,7 @@ import (
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/common/queue"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	"google.golang.org/grpc"
 	"net/http"
 )
@@ -24,6 +24,7 @@ type Application struct {
 	Name           string
 	Type           int32
 	LoggerRootPath string
+	LoggerLevel    string
 	LoadConfig     func() error
 	SetupVars      func() error
 }

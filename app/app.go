@@ -22,8 +22,12 @@ func initApplication(application *kelvins.Application) error {
 	if application.LoggerRootPath != "" {
 		rootPath = application.LoggerRootPath
 	}
+	loggerLevel := DefaultLoggerLevel
+	if application.LoggerLevel != "" {
+		loggerLevel = application.LoggerLevel
+	}
 
-	err := log.InitGlobalConfig(rootPath, DefaultLoggerLevel, application.Name)
+	err := log.InitGlobalConfig(rootPath, loggerLevel, application.Name)
 	if err != nil {
 		return fmt.Errorf("log.InitGlobalConfig: %v", err)
 	}

@@ -32,14 +32,9 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 
 // runQueue runs queue application.
 func runQueue(queueApp *kelvins.QueueApplication) error {
-	// 1. init application
-	err := initApplication(queueApp.Application)
-	if err != nil {
-		return err
-	}
 
-	// 2. load config
-	err = config.LoadDefaultConfig(queueApp.Application)
+	// 1. load config
+	err := config.LoadDefaultConfig(queueApp.Application)
 	if err != nil {
 		return err
 	}
@@ -48,6 +43,12 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// 2. init application
+	err = initApplication(queueApp.Application)
+	if err != nil {
+		return err
 	}
 
 	// 3. setup vars

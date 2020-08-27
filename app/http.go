@@ -32,14 +32,9 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 }
 
 func runHTTP(httpApp *kelvins.HTTPApplication) error {
-	// 1. init application
-	err := initApplication(httpApp.Application)
-	if err != nil {
-		return err
-	}
 
-	// 2. load config
-	err = config.LoadDefaultConfig(httpApp.Application)
+	// 1. load config
+	err := config.LoadDefaultConfig(httpApp.Application)
 	if err != nil {
 		return err
 	}
@@ -48,6 +43,12 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// 2. init application
+	err = initApplication(httpApp.Application)
+	if err != nil {
+		return err
 	}
 
 	// 3. setup vars
@@ -99,7 +100,6 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		err = serviceConfig.WriteConfig(etcdconfig.Config{
 			ServiceVersion: kelvins.Version,
 			ServicePort:    finalPort,
-			HttpPort:       finalPort,
 		})
 		if err != nil {
 			return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)

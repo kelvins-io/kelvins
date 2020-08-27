@@ -9,7 +9,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"github.com/google/uuid"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	"time"
 )
 
@@ -37,14 +37,9 @@ func RunCronApplication(application *kelvins.CronApplication) {
 
 // prepareCron prepares cron application.
 func prepareCron(cronApp *kelvins.CronApplication) error {
-	// 1. init application
-	err := initApplication(cronApp.Application)
-	if err != nil {
-		return err
-	}
 
-	// 2. load config
-	err = config.LoadDefaultConfig(cronApp.Application)
+	// 1. load config
+	err := config.LoadDefaultConfig(cronApp.Application)
 	if err != nil {
 		return err
 	}
@@ -53,6 +48,12 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// 2. init application
+	err = initApplication(cronApp.Application)
+	if err != nil {
+		return err
 	}
 
 	// 3. setup vars
@@ -114,7 +115,7 @@ func setupCronVars(cronApp *kelvins.CronApplication) error {
 		return err
 	}
 
-	cronApp.Cron = cron.New()
+	cronApp.Cron = cron.New(cron.WithSeconds())
 	return nil
 }
 

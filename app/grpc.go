@@ -17,7 +17,6 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 	"net"
-	"net/http"
 	"strconv"
 )
 
@@ -40,14 +39,9 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 
 // runGRPC runs grpc application.
 func runGRPC(grpcApp *kelvins.GRPCApplication) error {
-	// 1. init application
-	err := initApplication(grpcApp.Application)
-	if err != nil {
-		return err
-	}
 
-	// 2. load config
-	err = config.LoadDefaultConfig(grpcApp.Application)
+	// 1. load config
+	err := config.LoadDefaultConfig(grpcApp.Application)
 	if err != nil {
 		return err
 	}
@@ -56,6 +50,12 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// 2. init application
+	err = initApplication(grpcApp.Application)
+	if err != nil {
+		return err
 	}
 
 	// 3. setup vars
@@ -106,7 +106,6 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		err = serviceConfig.WriteConfig(etcdconfig.Config{
 			ServiceVersion: kelvins.Version,
 			ServicePort:    currentPort,
-			HttpPort:       currentPort,
 		})
 		if err != nil {
 			return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
@@ -152,18 +151,13 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	// 7. apollo hot update listen
 	//config.TriggerApolloHotUpdateListen(grpcApp.Application)
 
-	// run mux
-	go func() {
-		http.ListenAndServe(":"+currentPort, grpcApp.Mux)
-	}()
-
 	// 8. start server
 	logging.Infof("Start http server listen %s", kelvins.ServerSetting.EndPoint)
 	conn, err := net.Listen("tcp", kelvins.ServerSetting.EndPoint)
 	if err != nil {
 		return fmt.Errorf("TCP Listen err: %v", err)
 	}
-	err = grpcApp.GRPCServer.Serve(conn)
+	err = grpcApp.HttpServer.Serve(conn)
 	if err != nil {
 		return fmt.Errorf("HttpServer serve err: %v", err)
 	}

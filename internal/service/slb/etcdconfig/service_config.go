@@ -25,7 +25,6 @@ type ServiceConfig struct {
 type Config struct {
 	ServiceVersion string `json:"service_version"`
 	ServicePort    string `json:"service_port"`
-	HttpPort       string `json:"http_port"`
 }
 
 func NewServiceConfig(slb *slb.ServiceLB) *ServiceConfig {
