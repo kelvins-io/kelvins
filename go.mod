@@ -3,7 +3,7 @@ module gitee.com/kelvins-io/kelvins
 go 1.13
 
 require (
-	gitee.com/kelvins-io/common v1.0.1
+	gitee.com/kelvins-io/common v1.0.2
 	gitee.com/kelvins-io/service-config v1.0.0 // indirect
 	github.com/RichardKnop/machinery v1.7.3
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
