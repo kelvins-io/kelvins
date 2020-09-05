@@ -69,6 +69,19 @@ type QueueAliAMQPSettingS struct {
 	PrefetchCount   int
 }
 
+type QueueAMQPSettingS struct {
+	Broker           string
+	DefaultQueue     string
+	ResultBackend    string
+	ResultsExpireIn  int
+	Exchange         string
+	ExchangeType     string
+	BindingKey       string
+	PrefetchCount    int
+	TaskRetryCount   int
+	TaskRetryTimeout int
+}
+
 // AliRocketMQSettingS defines for aliyun RocketMQ queue
 type AliRocketMQSettingS struct {
 	BusinessName string
