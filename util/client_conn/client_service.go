@@ -45,8 +45,8 @@ func NewConn(serviceName string) (*Conn, error) {
 func (c *Conn) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
-	//target := c.ServerName + ":" + c.ServerPort
-	target := ":" + c.ServerPort
+	target := c.ServerName + ":" + c.ServerPort
+	//target := ":" + c.ServerPort
 
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithUnaryInterceptor(
