@@ -91,3 +91,13 @@ type AliRocketMQSettingS struct {
 	InstanceId   string
 	HttpEndpoint string
 }
+
+type MongoDBSettingS struct {
+	Uri         string
+	Username    string
+	Password    string
+	Database    string
+	AuthSource  string
+	MaxPoolSize int
+	MinPoolSize int
+}

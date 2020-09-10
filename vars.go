@@ -5,6 +5,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/config/setting"
 	"github.com/gomodule/redigo/redis"
 	"github.com/jinzhu/gorm"
+	"github.com/qiniu/qmgo"
 	"xorm.io/xorm"
 )
 
@@ -46,3 +47,9 @@ var QueueServerSetting *setting.QueueServerSettingS
 
 // QueueAliAMQPSetting maps config section "kelvinsQueueAliAMQP.*" from apollo.
 var QueueAliAMQPSetting *setting.QueueAliAMQPSettingS
+
+// MongoDBSetting maps config section mongodb.
+var MongoDBSetting *setting.MongoDBSettingS
+
+// MongoDBClient is qmgo-client for mongodb.
+var MongoDBClient *qmgo.QmgoClient

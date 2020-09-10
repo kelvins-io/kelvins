@@ -18,6 +18,8 @@ const (
 	SectionMysql = "kelvins-mysql"
 	// SectionRedis is a section name for redis.
 	SectionRedis = "kelvins-redis"
+	// SectionMongodb is a section name for mongodb
+	SectionMongoDB = "kelvins-mongodb"
 )
 
 // cfg reads file app.ini.
@@ -34,14 +36,13 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 
 	// Setup default settings
 	for _, sectionName := range cfg.SectionStrings() {
+		log.Printf("[info] Load default config %s", sectionName)
 		if sectionName == SectionServer {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.ServerSetting = new(setting.ServerSettingS)
 			MapConfig(sectionName, kelvins.ServerSetting)
 			continue
 		}
 		if sectionName == SectionLogger {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.LoggerSetting = new(setting.LoggerSettingS)
 			MapConfig(sectionName, kelvins.LoggerSetting)
 			application.LoggerRootPath = kelvins.LoggerSetting.RootPath
@@ -49,15 +50,18 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 			continue
 		}
 		if sectionName == SectionMysql {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.MysqlSetting = new(setting.MysqlSettingS)
 			MapConfig(sectionName, kelvins.MysqlSetting)
 			continue
 		}
 		if sectionName == SectionRedis {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.RedisSetting = new(setting.RedisSettingS)
 			MapConfig(sectionName, kelvins.RedisSetting)
+			continue
+		}
+		if sectionName == SectionMongoDB {
+			kelvins.MongoDBSetting = new(setting.MongoDBSettingS)
+			MapConfig(sectionName, kelvins.MongoDBSetting)
 			continue
 		}
 	}

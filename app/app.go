@@ -47,6 +47,13 @@ func setupCommonVars(application *kelvins.Application) error {
 		}
 	}
 
+	if kelvins.MongoDBSetting != nil && kelvins.MongoDBSetting.Uri != "" {
+		kelvins.MongoDBClient, err = setup.NewMongoDBClient(kelvins.MongoDBSetting)
+		if err != nil {
+			return err
+		}
+	}
+
 	if kelvins.RedisSetting != nil && kelvins.RedisSetting.Host != "" {
 		kelvins.RedisConn, err = setup.NewRedis(kelvins.RedisSetting)
 		if err != nil {
