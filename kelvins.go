@@ -45,6 +45,8 @@ type GRPCApplication struct {
 	RegisterGRPCServer      func(*grpc.Server) error
 	RegisterGateway         func(context.Context, *runtime.ServeMux, string, []grpc.DialOption) error
 	RegisterHttpRoute       func(*http.ServeMux) error
+	EventServer             *event.EventServer
+	RegisterEventProducer   func(event.ProducerIface) error
 }
 
 // CronJob warps job define.
@@ -57,9 +59,11 @@ type CronJob struct {
 // CronApplication ...
 type CronApplication struct {
 	*Application
-	CronLogger  *log.LoggerContext
-	Cron        *cron.Cron
-	GenCronJobs func() []*CronJob
+	CronLogger           *log.LoggerContext
+	Cron                 *cron.Cron
+	GenCronJobs          func() []*CronJob
+	EventServer          *event.EventServer
+	RegisterEventHandler func(event.EventServerIface) error
 }
 
 // QueueApplication ...
@@ -75,10 +79,12 @@ type QueueApplication struct {
 // HTTPApplication ...
 type HTTPApplication struct {
 	*Application
-	Port              int64
-	TraceLogger       *log.LoggerContext
-	TlsConfig         *tls.Config
-	Mux               *http.ServeMux
-	HttpServer        *http.Server
-	RegisterHttpRoute func(*http.ServeMux) error
+	Port                  int64
+	TraceLogger           *log.LoggerContext
+	TlsConfig             *tls.Config
+	Mux                   *http.ServeMux
+	HttpServer            *http.Server
+	RegisterHttpRoute     func(*http.ServeMux) error
+	EventServer           *event.EventServer
+	RegisterEventProducer func(event.ProducerIface) error
 }

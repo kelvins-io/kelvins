@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"gitee.com/kelvins-io/common/env"
+	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
@@ -148,8 +149,23 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		}
 	}
 
-	// 7. apollo hot update listen
-	//config.TriggerApolloHotUpdateListen(grpcApp.Application)
+	// 7. register event producer
+	if grpcApp.EventServer != nil {
+		logging.Infof("Start event server consume")
+		// subscribe event
+		if grpcApp.RegisterEventProducer != nil {
+			err := grpcApp.RegisterEventProducer(grpcApp.EventServer)
+			if err != nil {
+				return err
+			}
+		}
+		// start event server
+		err = grpcApp.EventServer.Start()
+		if err != nil {
+			return err
+		}
+		logging.Info("Start event server")
+	}
 
 	// 8. start server
 	logging.Infof("Start http server listen %s", kelvins.ServerSetting.EndPoint)
@@ -207,6 +223,30 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		grpcApp.TlsConfig,
 		kelvins.ServerSetting,
 	)
+
+	// init event server
+	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
+		logger, err := log.GetBusinessLogger("event")
+		if err != nil {
+			return err
+		}
+
+		// new event server
+		eventServer, err := event.NewEventServer(&event.Config{
+			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
+			RegionId:     kelvins.AliRocketMQSetting.RegionId,
+			AccessKey:    kelvins.AliRocketMQSetting.AccessKey,
+			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
+			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
+			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
+		}, logger)
+		if err != nil {
+			return err
+		}
+
+		grpcApp.EventServer = eventServer
+		return nil
+	}
 
 	return nil
 }

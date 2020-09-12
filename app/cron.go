@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
@@ -68,8 +69,23 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 		}
 	}
 
-	// 4. apollo hot update listen
-	//config.TriggerApolloHotUpdateListen(cronApp.Application)
+	// 4  register event handler
+	if cronApp.EventServer != nil && cronApp.RegisterEventHandler != nil {
+		logging.Infof("Start event server consume")
+		// subscribe event
+		if cronApp.RegisterEventHandler != nil {
+			err := cronApp.RegisterEventHandler(cronApp.EventServer)
+			if err != nil {
+				return err
+			}
+		}
+		// start event server
+		err = cronApp.EventServer.Start()
+		if err != nil {
+			return err
+		}
+		logging.Info("Start event server")
+	}
 
 	// 5. register cron jobs
 	if cronApp.GenCronJobs != nil {
@@ -114,8 +130,32 @@ func setupCronVars(cronApp *kelvins.CronApplication) error {
 	if err != nil {
 		return err
 	}
-
 	cronApp.Cron = cron.New(cron.WithSeconds())
+
+	// init event server
+	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
+		logger, err := log.GetBusinessLogger("event")
+		if err != nil {
+			return err
+		}
+
+		// new event server
+		eventServer, err := event.NewEventServer(&event.Config{
+			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
+			RegionId:     kelvins.AliRocketMQSetting.RegionId,
+			AccessKey:    kelvins.AliRocketMQSetting.AccessKey,
+			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
+			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
+			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
+		}, logger)
+		if err != nil {
+			return err
+		}
+
+		cronApp.EventServer = eventServer
+		return nil
+	}
+
 	return nil
 }
 

@@ -10,10 +10,9 @@ import (
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
-	"time"
-
 	"gitee.com/kelvins-io/kelvins/setup"
 	queue_log "github.com/RichardKnop/machinery/v1/log"
+	"time"
 )
 
 // RunQueueApplication runs queue application.
@@ -69,8 +68,10 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 
 	// 5. start server
 	errorsChan := make(chan error)
-	logging.Infof("Start queue consume")
+
+	// 6. event server
 	if queueApp.EventServer != nil {
+		logging.Infof("Start event server consume")
 		// subscribe event
 		if queueApp.RegisterEventHandler != nil {
 			err := queueApp.RegisterEventHandler(queueApp.EventServer)
@@ -84,27 +85,29 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 			return err
 		}
 		logging.Info("Start event server")
-	} else {
-		concurrency := len(queueApp.GetNamedTaskFuncs())
-		if kelvins.QueueServerSetting != nil {
-			concurrency = kelvins.QueueServerSetting.WorkerConcurrency
+	}
+
+	// 7. queue server
+	logging.Infof("Start queue server consume")
+	concurrency := len(queueApp.GetNamedTaskFuncs())
+	if kelvins.QueueServerSetting != nil {
+		concurrency = kelvins.QueueServerSetting.WorkerConcurrency
+	}
+	logging.Infof("Count of worker goroutine: %d", concurrency)
+	consumerTag := queueApp.Application.Name + convert.Int64ToStr(time.Now().Local().UnixNano())
+
+	var queueList = []string{""}
+	queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
+
+	for _, customQueue := range queueList {
+		cTag := consumerTag
+		if len(customQueue) > 0 {
+			cTag = customQueue + "-" + consumerTag
 		}
-		logging.Infof("Count of worker goroutine: %d", concurrency)
-		consumerTag := queueApp.Application.Name + convert.Int64ToStr(time.Now().Local().UnixNano())
 
-		var queueList = []string{""}
-		queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
-
-		for _, customQueue := range queueList {
-			cTag := consumerTag
-			if len(customQueue) > 0 {
-				cTag = customQueue + "-" + consumerTag
-			}
-
-			logging.Infof("Consumer Tag: %s", cTag)
-			worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
-			worker.LaunchAsync(errorsChan)
-		}
+		logging.Infof("Consumer Tag: %s", cTag)
+		worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
+		worker.LaunchAsync(errorsChan)
 	}
 
 	return <-errorsChan

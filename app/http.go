@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"gitee.com/kelvins-io/common/env"
+	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
@@ -129,8 +130,23 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		kelvins.ServerSetting,
 	)
 
-	// 7. apollo hot update listen
-	//config.TriggerApolloHotUpdateListen(httpApp.Application)
+	// 7. register  event producer
+	if httpApp.EventServer != nil {
+		logging.Infof("Start event server consume")
+		// subscribe event
+		if httpApp.RegisterEventProducer != nil {
+			err := httpApp.RegisterEventProducer(httpApp.EventServer)
+			if err != nil {
+				return err
+			}
+		}
+		// start event server
+		err = httpApp.EventServer.Start()
+		if err != nil {
+			return err
+		}
+		logging.Info("Start event server")
+	}
 
 	// 8. start server
 	logging.Infof("Start http server listen %s", kelvins.ServerSetting.EndPoint)
@@ -151,6 +167,30 @@ func setupHTTPVars(httpApp *kelvins.HTTPApplication) error {
 	httpApp.TraceLogger, err = log.GetAccessLogger("http.trace")
 	if err != nil {
 		return fmt.Errorf("kelvinslog.GetAccessLogger: %v", err)
+	}
+
+	// init event server
+	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
+		logger, err := log.GetBusinessLogger("event")
+		if err != nil {
+			return err
+		}
+
+		// new event server
+		eventServer, err := event.NewEventServer(&event.Config{
+			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
+			RegionId:     kelvins.AliRocketMQSetting.RegionId,
+			AccessKey:    kelvins.AliRocketMQSetting.AccessKey,
+			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
+			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
+			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
+		}, logger)
+		if err != nil {
+			return err
+		}
+
+		httpApp.EventServer = eventServer
+		return nil
 	}
 
 	return nil
