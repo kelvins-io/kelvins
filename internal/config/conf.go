@@ -20,6 +20,16 @@ const (
 	SectionRedis = "kelvins-redis"
 	// SectionMongodb is a section name for mongodb
 	SectionMongoDB = "kelvins-mongodb"
+	// SectionQueueRedis is a section name for redis queue
+	SectionQueueRedis = "kelvins-queue-redis"
+	// SectionQueueAliAMQP is a section name for aliamqp
+	SectionQueueAliAMQP = "kelvins-queue-ali-amqp"
+	// SectionQueueAMQP is a section name for amqp
+	SectionQueueAMQP = "kelvins-queue-amqp"
+	// SectionQueueAliRocketMQ is a section name for ali-rocketmq
+	SectionQueueAliRocketMQ = "kelvins-queue-ali-rocketmq"
+	// SectionQueueServer is a section name for queue-server
+	SectionQueueServer = "kelvins-queue-server"
 )
 
 // cfg reads file app.ini.
@@ -62,6 +72,31 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 		if sectionName == SectionMongoDB {
 			kelvins.MongoDBSetting = new(setting.MongoDBSettingS)
 			MapConfig(sectionName, kelvins.MongoDBSetting)
+			continue
+		}
+		if sectionName == SectionQueueRedis {
+			kelvins.QueueRedisSetting = new(setting.QueueRedisSettingS)
+			MapConfig(sectionName, kelvins.QueueRedisSetting)
+			continue
+		}
+		if sectionName == SectionQueueAliAMQP {
+			kelvins.QueueAliAMQPSetting = new(setting.QueueAliAMQPSettingS)
+			MapConfig(sectionName, kelvins.QueueAliAMQPSetting)
+			continue
+		}
+		if sectionName == SectionQueueAMQP {
+			kelvins.QueueAMQPSetting = new(setting.QueueAMQPSettingS)
+			MapConfig(sectionName, kelvins.QueueAMQPSetting)
+			continue
+		}
+		if sectionName == SectionQueueAliRocketMQ {
+			kelvins.AliRocketMQSetting = new(setting.AliRocketMQSettingS)
+			MapConfig(sectionName, kelvins.AliRocketMQSetting)
+			continue
+		}
+		if sectionName == SectionQueueServer {
+			kelvins.QueueServerSetting = new(setting.QueueServerSettingS)
+			MapConfig(sectionName, kelvins.QueueServerSetting)
 			continue
 		}
 	}

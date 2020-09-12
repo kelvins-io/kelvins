@@ -48,6 +48,12 @@ var QueueServerSetting *setting.QueueServerSettingS
 // QueueAliAMQPSetting maps config section "kelvinsQueueAliAMQP.*" from apollo.
 var QueueAliAMQPSetting *setting.QueueAliAMQPSettingS
 
+// AliRocketMQSetting
+var AliRocketMQSetting *setting.AliRocketMQSettingS
+
+// QueueAMQPSetting maps config section
+var QueueAMQPSetting *setting.QueueAMQPSettingS
+
 // MongoDBSetting maps config section mongodb.
 var MongoDBSetting *setting.MongoDBSettingS
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"gitee.com/kelvins-io/common/queue"
 	"gitee.com/kelvins-io/kelvins/config/setting"
-	"log"
 )
 
 // NewRedisQueue returns *kelvinsqueue.MachineryQueue instance of redis queue.
@@ -95,21 +94,21 @@ func NewAliAMQPQueue(aliAMQPQueueSetting *setting.QueueAliAMQPSettingS, namedTas
 }
 
 // SetUpAMQPQueue returns *queue.MachineryQueue instance of  AMQP queue.
-func NewAMQPQueue(amqpQueueSetting *setting.QueueAMQPSettingS, namedTaskFuncs map[string]interface{}) *queue.MachineryQueue {
+func NewAMQPQueue(amqpQueueSetting *setting.QueueAMQPSettingS, namedTaskFuncs map[string]interface{}) (*queue.MachineryQueue, error) {
 	if amqpQueueSetting == nil {
-		log.Fatal("[err] amqpQueueSetting is nil")
+		return nil, fmt.Errorf("[err] amqpQueueSetting is nil")
 	}
 	if amqpQueueSetting.Broker == "" {
-		log.Fatal("[err] Lack of amqpQueueSetting.Broker")
+		return nil, fmt.Errorf("[err] Lack of amqpQueueSetting.Broker")
 	}
 	if amqpQueueSetting.DefaultQueue == "" {
-		log.Fatal("[err] Lack of amqpQueueSetting.DefaultQueue")
+		return nil, fmt.Errorf("[err] Lack of amqpQueueSetting.DefaultQueue")
 	}
 	if amqpQueueSetting.ResultBackend == "" {
-		log.Fatal("[err] Lack of amqpQueueSetting.ResultBackend")
+		return nil, fmt.Errorf("[err] Lack of amqpQueueSetting.ResultBackend")
 	}
 	if amqpQueueSetting.ResultsExpireIn < 0 {
-		log.Fatal("[err] amqpQueueSetting.ResultsExpireIn must >= 0")
+		return nil, fmt.Errorf("[err] amqpQueueSetting.ResultsExpireIn must >= 0")
 	}
 
 	var amqpQueue, err = queue.NewRabbitMqQueue(
@@ -124,8 +123,8 @@ func NewAMQPQueue(amqpQueueSetting *setting.QueueAMQPSettingS, namedTaskFuncs ma
 		nil,
 		namedTaskFuncs)
 	if err != nil {
-		log.Fatalf("[err] Err queue.NewRabbitMqQueue:%v", err)
+		return nil, fmt.Errorf("kelvinsqueue.NewAliAMQPMqQueue: %v", err)
 	}
 
-	return amqpQueue
+	return amqpQueue, nil
 }

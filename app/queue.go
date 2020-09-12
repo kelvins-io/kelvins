@@ -5,14 +5,15 @@ import (
 	"flag"
 	"fmt"
 	"gitee.com/kelvins-io/common/convert"
+	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
+	"time"
 
 	"gitee.com/kelvins-io/kelvins/setup"
 	queue_log "github.com/RichardKnop/machinery/v1/log"
-	"time"
 )
 
 // RunQueueApplication runs queue application.
@@ -68,27 +69,42 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 
 	// 5. start server
 	errorsChan := make(chan error)
-
 	logging.Infof("Start queue consume")
-	concurrency := len(queueApp.GetNamedTaskFuncs())
-	if kelvins.QueueServerSetting != nil {
-		concurrency = kelvins.QueueServerSetting.WorkerConcurrency
-	}
-	logging.Infof("Count of worker goroutine: %d", concurrency)
-	consumerTag := queueApp.Application.Name + convert.Int64ToStr(time.Now().Local().UnixNano())
-
-	var queueList = []string{""}
-	queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
-
-	for _, customQueue := range queueList {
-		cTag := consumerTag
-		if len(customQueue) > 0 {
-			cTag = customQueue + "-" + consumerTag
+	if queueApp.EventServer != nil {
+		// subscribe event
+		if queueApp.RegisterEventHandler != nil {
+			err := queueApp.RegisterEventHandler(queueApp.EventServer)
+			if err != nil {
+				return err
+			}
 		}
+		// start event server
+		err = queueApp.EventServer.Start()
+		if err != nil {
+			return err
+		}
+		logging.Info("Start event server")
+	} else {
+		concurrency := len(queueApp.GetNamedTaskFuncs())
+		if kelvins.QueueServerSetting != nil {
+			concurrency = kelvins.QueueServerSetting.WorkerConcurrency
+		}
+		logging.Infof("Count of worker goroutine: %d", concurrency)
+		consumerTag := queueApp.Application.Name + convert.Int64ToStr(time.Now().Local().UnixNano())
 
-		logging.Infof("Consumer Tag: %s", cTag)
-		worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
-		worker.LaunchAsync(errorsChan)
+		var queueList = []string{""}
+		queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
+
+		for _, customQueue := range queueList {
+			cTag := consumerTag
+			if len(customQueue) > 0 {
+				cTag = customQueue + "-" + consumerTag
+			}
+
+			logging.Infof("Consumer Tag: %s", cTag)
+			worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
+			worker.LaunchAsync(errorsChan)
+		}
 	}
 
 	return <-errorsChan
@@ -119,11 +135,41 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 		}
 		return nil
 	}
+	if kelvins.QueueAMQPSetting != nil && kelvins.QueueAMQPSetting.Broker != "" {
+		queueApp.QueueServer, err = setup.NewAMQPQueue(kelvins.QueueAMQPSetting, queueApp.GetNamedTaskFuncs())
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 	if kelvins.QueueAliAMQPSetting != nil && kelvins.QueueAliAMQPSetting.VHost != "" {
 		queueApp.QueueServer, err = setup.NewAliAMQPQueue(kelvins.QueueAliAMQPSetting, queueApp.GetNamedTaskFuncs())
 		if err != nil {
 			return err
 		}
+		return nil
+	}
+	// init event server
+	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
+		logger, err := log.GetBusinessLogger("event")
+		if err != nil {
+			return err
+		}
+
+		// new event server
+		eventServer, err := event.NewEventServer(&event.Config{
+			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
+			RegionId:     kelvins.AliRocketMQSetting.RegionId,
+			AccessKey:    kelvins.AliRocketMQSetting.AccessKey,
+			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
+			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
+			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
+		}, logger)
+		if err != nil {
+			return err
+		}
+
+		queueApp.EventServer = eventServer
 		return nil
 	}
 
