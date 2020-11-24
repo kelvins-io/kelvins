@@ -18,6 +18,9 @@ var GORM_DBEngine *gorm.DB
 // XORM_DBEngine is a global vars for mysql connect.
 var XORM_DBEngine xorm.EngineInterface
 
+// FrameworkLogger is a global var for Framework log
+var FrameworkLogger log.LoggerContextIface
+
 // ErrLogger is a global vars for application to log err msg.
 var ErrLogger log.LoggerContextIface
 

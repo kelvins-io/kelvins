@@ -15,6 +15,10 @@ import (
 	"strings"
 )
 
+var (
+	opts []grpc.DialOption
+)
+
 type Conn struct {
 	ServerName string
 	ServerPort string
@@ -29,11 +33,17 @@ func NewConn(serviceName string) (*Conn, error) {
 	if len(etcdServerUrls) == 0 {
 		return nil, fmt.Errorf("Can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
 	}
-	serviceLB := slb.NewService(etcdServerUrls, serviceName)
-	serviceConfig := etcdconfig.NewServiceConfig(serviceLB)
-	currentConfig, err := serviceConfig.GetConfig()
-	if err != nil {
-		return nil, fmt.Errorf("serviceConfig.GetConfig err: %v", err)
+	// load cache get client config
+	currentConfig := loadClientConfig(serviceName)
+	if currentConfig == nil {
+		var err error
+		serviceLB := slb.NewService(etcdServerUrls, serviceName)
+		serviceConfig := etcdconfig.NewServiceConfig(serviceLB)
+		currentConfig, err = serviceConfig.GetConfig()
+		if err != nil {
+			return nil, fmt.Errorf("serviceConfig.GetConfig err: %v", err)
+		}
+		storeClientConfig(serviceName, currentConfig)
 	}
 
 	return &Conn{
@@ -43,11 +53,15 @@ func NewConn(serviceName string) (*Conn, error) {
 }
 
 func (c *Conn) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
-	var opts []grpc.DialOption
-
 	target := c.ServerName + ":" + c.ServerPort
-	//target := ":" + c.ServerPort
+	return grpc.DialContext(
+		ctx,
+		target,
+		opts...,
+	)
+}
 
+func init() {
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithUnaryInterceptor(
 		grpc_middleware.ChainUnaryClient(
@@ -66,10 +80,4 @@ func (c *Conn) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
 			grpc_interceptor.StreamCtxHandleGRPC(),
 		),
 	))
-
-	return grpc.DialContext(
-		ctx,
-		target,
-		opts...,
-	)
 }

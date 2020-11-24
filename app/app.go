@@ -61,6 +61,11 @@ func setupCommonVars(application *kelvins.Application) error {
 		}
 	}
 
+	kelvins.FrameworkLogger, err = log.GetCustomLogger("framework", "framework")
+	if err != nil {
+		return err
+	}
+
 	kelvins.ErrLogger, err = log.GetErrLogger("err")
 	if err != nil {
 		return err
