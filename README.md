@@ -51,3 +51,6 @@ kelvins-queue-server
 ++自定义配置项，根据项目本身而定    
 micro-mall-api/etcd/app.ini#EmailConfig就属于自定义配置项    
 
+###技术交流
+QQ群：578859618   
+邮件：1225807604@qq.com
