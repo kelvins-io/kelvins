@@ -47,13 +47,11 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 	// Setup default settings
 	for _, sectionName := range cfg.SectionStrings() {
 		if sectionName == SectionServer {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.ServerSetting = new(setting.ServerSettingS)
 			MapConfig(sectionName, kelvins.ServerSetting)
 			continue
 		}
 		if sectionName == SectionLogger {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.LoggerSetting = new(setting.LoggerSettingS)
 			MapConfig(sectionName, kelvins.LoggerSetting)
 			application.LoggerRootPath = kelvins.LoggerSetting.RootPath
@@ -61,49 +59,41 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 			continue
 		}
 		if sectionName == SectionMysql {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.MysqlSetting = new(setting.MysqlSettingS)
 			MapConfig(sectionName, kelvins.MysqlSetting)
 			continue
 		}
 		if sectionName == SectionRedis {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.RedisSetting = new(setting.RedisSettingS)
 			MapConfig(sectionName, kelvins.RedisSetting)
 			continue
 		}
 		if sectionName == SectionMongoDB {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.MongoDBSetting = new(setting.MongoDBSettingS)
 			MapConfig(sectionName, kelvins.MongoDBSetting)
 			continue
 		}
 		if sectionName == SectionQueueRedis {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.QueueRedisSetting = new(setting.QueueRedisSettingS)
 			MapConfig(sectionName, kelvins.QueueRedisSetting)
 			continue
 		}
 		if sectionName == SectionQueueAliAMQP {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.QueueAliAMQPSetting = new(setting.QueueAliAMQPSettingS)
 			MapConfig(sectionName, kelvins.QueueAliAMQPSetting)
 			continue
 		}
 		if sectionName == SectionQueueAMQP {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.QueueAMQPSetting = new(setting.QueueAMQPSettingS)
 			MapConfig(sectionName, kelvins.QueueAMQPSetting)
 			continue
 		}
 		if sectionName == SectionQueueAliRocketMQ {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.AliRocketMQSetting = new(setting.AliRocketMQSettingS)
 			MapConfig(sectionName, kelvins.AliRocketMQSetting)
 			continue
 		}
 		if sectionName == SectionQueueServer {
-			log.Printf("[info] Load default config %s", sectionName)
 			kelvins.QueueServerSetting = new(setting.QueueServerSettingS)
 			MapConfig(sectionName, kelvins.QueueServerSetting)
 			continue
@@ -114,6 +104,7 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 
 // MapConfig uses cfg to map config.
 func MapConfig(section string, v interface{}) {
+	log.Printf("[info] Load default config %s", section)
 	sec, err := cfg.GetSection(section)
 	if err != nil {
 		log.Fatalf("[err] Fail to parse '%s': %v", section, err)
