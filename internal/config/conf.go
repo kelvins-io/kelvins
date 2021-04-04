@@ -38,13 +38,13 @@ const (
 // cfg reads file app.ini.
 var (
 	cfg            *ini.File
-	flagConfigPath = flag.String("conf", "", "Set Conf Path.")
+	flagConfigPath = flag.String("conf_file", "", "Set Conf Path.")
 )
 
 // LoadDefaultConfig loads config form cfg.
 func LoadDefaultConfig(application *kelvins.Application) error {
 	flag.Parse()
-	configFile := ConfFileName
+	var configFile = ConfFileName
 	if *flagConfigPath != "" {
 		configFile = *flagConfigPath
 	}
