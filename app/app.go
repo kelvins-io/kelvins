@@ -6,25 +6,37 @@ import (
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/setup"
+	goroute "gitee.com/kelvins-io/kelvins/util/groutine"
+	"os"
+)
+
+const (
+	DefaultLoggerRootPath = "./logs"
+	DefaultLoggerLevel    = "debug"
 )
 
 var (
-	port       = flag.Int64("p", 0, "Set server port.")
-	loggerPath = flag.String("logger_path", "", "Set Logger Root Path.")
+	flagLoggerLevel = flag.String("logger_level", "", "Set Logger Level.")
+	flagLoggerPath  = flag.String("logger_path", "", "Set Logger Root Path.")
 )
 
-// initApplication initalizes application.
 func initApplication(application *kelvins.Application) error {
-	const DefaultLoggerRootPath = "./logs"
-	const DefaultLoggerLevel = "debug"
+	kelvins.ServerName = application.Name
 
+	flag.Parse()
 	rootPath := DefaultLoggerRootPath
 	if application.LoggerRootPath != "" {
 		rootPath = application.LoggerRootPath
 	}
+	if *flagLoggerPath != "" {
+		rootPath = *flagLoggerPath
+	}
 	loggerLevel := DefaultLoggerLevel
 	if application.LoggerLevel != "" {
 		loggerLevel = application.LoggerLevel
+	}
+	if *flagLoggerLevel != "" {
+		loggerLevel = *flagLoggerLevel
 	}
 
 	err := log.InitGlobalConfig(rootPath, loggerLevel, application.Name)
@@ -59,6 +71,17 @@ func setupCommonVars(application *kelvins.Application) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if kelvins.GPoolSetting != nil && kelvins.GPoolSetting.JobChanLen > 0 && kelvins.GPoolSetting.WorkerNum > 0 {
+		kelvins.GPool = goroute.NewPool(kelvins.GPoolSetting.WorkerNum, kelvins.GPoolSetting.JobChanLen)
+	}
+
+	if kelvins.ServerSetting != nil && kelvins.ServerSetting.PIDFile != "" {
+		kelvins.PIDFile = kelvins.ServerSetting.PIDFile
+	} else {
+		wd, _ := os.Getwd()
+		kelvins.PIDFile = fmt.Sprintf("%s/%s.pid", wd, kelvins.ServerName)
 	}
 
 	kelvins.FrameworkLogger, err = log.GetCustomLogger("framework", "framework")

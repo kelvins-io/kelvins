@@ -1,7 +1,7 @@
 package app
 
 import (
-	"flag"
+	"context"
 	"fmt"
 	"gitee.com/kelvins-io/common/env"
 	"gitee.com/kelvins-io/common/event"
@@ -13,17 +13,16 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
 	"gitee.com/kelvins-io/kelvins/internal/setup"
 	"gitee.com/kelvins-io/kelvins/internal/util"
+	"gitee.com/kelvins-io/kelvins/util/kprocess"
+	"os"
 	"strconv"
+	"time"
 )
 
 func RunHTTPApplication(application *kelvins.HTTPApplication) {
 	if application.Name == "" {
 		logging.Fatal("Application name can't not be empty")
 	}
-
-	flag.Parse()
-	application.Port = *port
-	application.LoggerRootPath = *loggerPath
 	application.Type = kelvins.AppTypeHttp
 
 	err := runHTTP(application)
@@ -150,10 +149,29 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 
 	// 8. start server
 	logging.Infof("Start http server listen %s", kelvins.ServerSetting.EndPoint)
-	err = httpApp.HttpServer.ListenAndServe()
+	ln, err := kprocess.Listen("tcp", kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("HttpServer serve err: %v", err)
+		return fmt.Errorf("TCP Listen err: %v", err)
 	}
+	defer kprocess.Stop()
+	go func() {
+		err = httpApp.HttpServer.Serve(ln)
+		if err != nil {
+			logging.Fatalf("HttpServer serve err: %v", err)
+		}
+	}()
+
+	<-kprocess.Exit()
+
+	// Make sure to set a deadline on exiting the process
+	// after upg.Exit() is closed. No new upgrades can be
+	// performed if the parent doesn't exit.
+	time.AfterFunc(5*time.Second, func() {
+		logging.Infof("Graceful shutdown timed out")
+		os.Exit(1)
+	})
+	// Wait for connections to drain.
+	err = httpApp.HttpServer.Shutdown(context.Background())
 
 	return nil
 }

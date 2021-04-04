@@ -4,6 +4,7 @@ package setting
 type ServerSettingS struct {
 	EndPoint             string
 	IsRecordCallResponse bool
+	PIDFile              string
 }
 
 // 日志
@@ -100,4 +101,9 @@ type MongoDBSettingS struct {
 	AuthSource  string
 	MaxPoolSize int
 	MinPoolSize int
+}
+
+type GPoolSettingS struct {
+	WorkerNum  int
+	JobChanLen int
 }

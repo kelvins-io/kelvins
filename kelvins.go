@@ -27,6 +27,7 @@ type Application struct {
 	LoggerLevel    string
 	LoadConfig     func() error
 	SetupVars      func() error
+	StopFunc       func() error
 }
 
 // GRPCApplication ...

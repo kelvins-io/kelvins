@@ -1,6 +1,7 @@
 package config
 
 import (
+	"flag"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/config/setting"
 	"gopkg.in/ini.v1"
@@ -30,16 +31,27 @@ const (
 	SectionQueueAliRocketMQ = "kelvins-queue-ali-rocketmq"
 	// SectionQueueServer is a section name for queue-server
 	SectionQueueServer = "kelvins-queue-server"
+	// SectionGPool is goroutine pool
+	SectionGPool = "kelvins-gpool"
 )
 
 // cfg reads file app.ini.
-var cfg *ini.File
+var (
+	cfg            *ini.File
+	flagConfigPath = flag.String("conf", "", "Set Conf Path.")
+)
 
 // LoadDefaultConfig loads config form cfg.
 func LoadDefaultConfig(application *kelvins.Application) error {
+	flag.Parse()
+	configFile := ConfFileName
+	if *flagConfigPath != "" {
+		configFile = *flagConfigPath
+	}
+
 	// Setup cfg object
 	var err error
-	cfg, err = ini.Load(ConfFileName)
+	cfg, err = ini.Load(configFile)
 	if err != nil {
 		return err
 	}
@@ -96,6 +108,11 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 		if sectionName == SectionQueueServer {
 			kelvins.QueueServerSetting = new(setting.QueueServerSettingS)
 			MapConfig(sectionName, kelvins.QueueServerSetting)
+			continue
+		}
+		if sectionName == SectionGPool {
+			kelvins.GPoolSetting = new(setting.GPoolSettingS)
+			MapConfig(sectionName, kelvins.GPoolSetting)
 			continue
 		}
 	}

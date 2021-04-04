@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"gitee.com/kelvins-io/common/convert"
 	"gitee.com/kelvins-io/common/event"
@@ -11,6 +10,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/setup"
+	"gitee.com/kelvins-io/kelvins/util/kprocess"
 	queue_log "github.com/RichardKnop/machinery/v1/log"
 	"time"
 )
@@ -20,10 +20,8 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 	if application.Name == "" {
 		logging.Fatal("Application name can't not be empty")
 	}
-
-	flag.Parse()
-	application.LoggerRootPath = *loggerPath
 	application.Type = kelvins.AppTypeQueue
+
 	err := runQueue(application)
 	if err != nil {
 		logging.Fatalf("RunQueueApplication err: %v", err)
@@ -96,6 +94,13 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	logging.Infof("Count of worker goroutine: %d", concurrency)
 	consumerTag := queueApp.Application.Name + convert.Int64ToStr(time.Now().Local().UnixNano())
 
+	// process listen
+	_, err = kprocess.Listen("", "", kelvins.PIDFile)
+	if err != nil {
+		return err
+	}
+	defer kprocess.Stop()
+
 	var queueList = []string{""}
 	queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
 
@@ -109,6 +114,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 		worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
 		worker.LaunchAsync(errorsChan)
 	}
+	<-kprocess.Exit()
 
 	return <-errorsChan
 }
