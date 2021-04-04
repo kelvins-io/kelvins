@@ -26,6 +26,14 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 	if err != nil {
 		logging.Fatalf("RunQueueApplication err: %v", err)
 	}
+	<-kprocess.Exit()
+
+	appPrepareForceExit()
+	// Wait for connections to drain.
+	err = appShutdown(application.Application)
+	if err != nil {
+		logging.Fatalf("App.appShutdown err: %v", err)
+	}
 }
 
 // runQueue runs queue application.
@@ -99,8 +107,6 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	if err != nil {
 		return err
 	}
-	defer kprocess.Stop()
-
 	var queueList = []string{""}
 	queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
 
@@ -114,7 +120,6 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 		worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
 		worker.LaunchAsync(errorsChan)
 	}
-	<-kprocess.Exit()
 
 	return <-errorsChan
 }

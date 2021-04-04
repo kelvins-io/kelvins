@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/setup"
 	goroute "gitee.com/kelvins-io/kelvins/util/groutine"
 	"os"
+	"time"
 )
 
 const (
@@ -105,4 +107,24 @@ func setupCommonVars(application *kelvins.Application) error {
 	}
 
 	return nil
+}
+
+func appShutdown(application *kelvins.Application) error {
+	if application.StopFunc != nil {
+		err := application.StopFunc()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func appPrepareForceExit() {
+	// Make sure to set a deadline on exiting the process
+	// after upg.Exit() is closed. No new upgrades can be
+	// performed if the parent doesn't exit.
+	time.AfterFunc(30*time.Second, func() {
+		logging.Infof("App Graceful shutdown timed out")
+		os.Exit(1)
+	})
 }

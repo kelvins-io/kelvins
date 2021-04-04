@@ -31,13 +31,16 @@ func RunCronApplication(application *kelvins.CronApplication) {
 	if err != nil {
 		logging.Fatalf("kprocess listen err: %v", err)
 	}
-	defer kprocess.Stop()
-
 	logging.Info("Start cron")
 	application.Cron.Start()
-
 	<-kprocess.Exit()
+
+	appPrepareForceExit()
 	application.Cron.Stop()
+	err = appShutdown(application.Application)
+	if err != nil {
+		logging.Fatalf("App.appShutdown err: %v", err)
+	}
 }
 
 // prepareCron prepares cron application.

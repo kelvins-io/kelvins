@@ -14,9 +14,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/setup"
 	"gitee.com/kelvins-io/kelvins/internal/util"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
-	"os"
 	"strconv"
-	"time"
 )
 
 func RunHTTPApplication(application *kelvins.HTTPApplication) {
@@ -28,6 +26,18 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 	err := runHTTP(application)
 	if err != nil {
 		logging.Fatalf("App.RunHTTP err: %v", err)
+	}
+	<-kprocess.Exit()
+
+	appPrepareForceExit()
+	// Wait for connections to drain.
+	err = application.HttpServer.Shutdown(context.Background())
+	if err != nil {
+		logging.Fatalf("App.HttpServer Shutdown err: %v", err)
+	}
+	err = appShutdown(application.Application)
+	if err != nil {
+		logging.Fatalf("App.appShutdown err: %v", err)
 	}
 }
 
@@ -153,7 +163,6 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	if err != nil {
 		return fmt.Errorf("TCP Listen err: %v", err)
 	}
-	defer kprocess.Stop()
 	go func() {
 		err = httpApp.HttpServer.Serve(ln)
 		if err != nil {
@@ -161,19 +170,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		}
 	}()
 
-	<-kprocess.Exit()
-
-	// Make sure to set a deadline on exiting the process
-	// after upg.Exit() is closed. No new upgrades can be
-	// performed if the parent doesn't exit.
-	time.AfterFunc(5*time.Second, func() {
-		logging.Infof("Graceful shutdown timed out")
-		os.Exit(1)
-	})
-	// Wait for connections to drain.
-	err = httpApp.HttpServer.Shutdown(context.Background())
-
-	return nil
+	return err
 }
 
 func setupHTTPVars(httpApp *kelvins.HTTPApplication) error {
