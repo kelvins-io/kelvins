@@ -23,9 +23,9 @@ var (
 )
 
 func initApplication(application *kelvins.Application) error {
+	flag.Parse()
 	kelvins.ServerName = application.Name
 
-	flag.Parse()
 	rootPath := DefaultLoggerRootPath
 	if application.LoggerRootPath != "" {
 		rootPath = application.LoggerRootPath
