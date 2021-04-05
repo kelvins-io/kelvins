@@ -60,7 +60,10 @@ func Upgrade() error {
 }
 
 func Exit() <-chan struct{} {
-	return processUp.Exit()
+	if processUp != nil {
+		return processUp.Exit()
+	}
+	return nil
 }
 
 func Signal(upgradeFunc, stopFunc func() error) {
