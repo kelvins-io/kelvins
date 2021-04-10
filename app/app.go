@@ -7,7 +7,7 @@ import (
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/setup"
-	goroute "gitee.com/kelvins-io/kelvins/util/groutine"
+	goroute "gitee.com/kelvins-io/kelvins/util/goroutine"
 	"os"
 	"time"
 )
