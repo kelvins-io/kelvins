@@ -68,7 +68,7 @@ var MongoDBClient *qmgo.QmgoClient
 var GPoolSetting *setting.GPoolSettingS
 
 // GPool is goroutine pool
-var GPool *goroute.Pool
+var GPool *goroutine.Pool
 
 // PIDFile is process pid
 var PIDFile string
