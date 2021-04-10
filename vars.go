@@ -3,7 +3,7 @@ package kelvins
 import (
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins/config/setting"
-	"gitee.com/kelvins-io/kelvins/util/groutine"
+	"gitee.com/kelvins-io/kelvins/util/goroutine"
 	"github.com/gomodule/redigo/redis"
 	"github.com/jinzhu/gorm"
 	"github.com/qiniu/qmgo"
@@ -68,7 +68,7 @@ var MongoDBClient *qmgo.QmgoClient
 var GPoolSetting *setting.GPoolSettingS
 
 // GPool is goroutine pool
-var GPool *goroute.Pool
+var GPool *goroutine.Pool
 
 // PIDFile is process pid
 var PIDFile string
