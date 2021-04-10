@@ -7,7 +7,7 @@ import (
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/setup"
-	goroute "gitee.com/kelvins-io/kelvins/util/goroutine"
+	"gitee.com/kelvins-io/kelvins/util/goroutine"
 	"os"
 	"time"
 )
@@ -76,7 +76,7 @@ func setupCommonVars(application *kelvins.Application) error {
 	}
 
 	if kelvins.GPoolSetting != nil && kelvins.GPoolSetting.JobChanLen > 0 && kelvins.GPoolSetting.WorkerNum > 0 {
-		kelvins.GPool = goroute.NewPool(kelvins.GPoolSetting.WorkerNum, kelvins.GPoolSetting.JobChanLen)
+		kelvins.GPool = goroutine.NewPool(kelvins.GPoolSetting.WorkerNum, kelvins.GPoolSetting.JobChanLen)
 	}
 
 	if kelvins.ServerSetting != nil && kelvins.ServerSetting.PIDFile != "" {
