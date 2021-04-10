@@ -229,7 +229,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	grpcApp.GatewayServeMux = setup.NewGateway()
 	grpcApp.Mux = setup.NewGatewayServerMux(grpcApp.GatewayServeMux)
 	grpcApp.HttpServer = setup.NewHttpServer(
-		setup.GRPCHandlerFunc(grpcApp.GRPCServer, grpcApp.Mux),
+		setup.GRPCHandlerFunc(grpcApp.GRPCServer, grpcApp.Mux, kelvins.ServerSetting),
 		grpcApp.TlsConfig,
 		kelvins.ServerSetting,
 	)
