@@ -1,6 +1,16 @@
 # kelvins
 
-微服务框架
+go/golang微服务框架
+
+### 支持特性
+注册服务，发现服务，grpc/http gateway，cron，queue，http/gin服务，插拔式配置加载，双orm支持，mysql,mongo支持，事件总线，日志，异步任务池，   
+Prometheus/pprof监控，进程优雅重启，应用自定义配置，启动flag参数指定，应用hook，工具类（由kelvins-io/common支持），全局变量vars
+
+#### 即将支持
+限流，熔断，sentry异常，kelvins-tools工具箱（一键生成应用，运维部署等）
+
+### 软件环境
+> go 1.13.15
 
 ### 运行环境变量
 etcd集群地址   
@@ -47,9 +57,51 @@ kelvins-queue-amqp
 kelvins-queue-ali-rocketmq   
 队列消费者配置   
 kelvins-queue-server   
-
+异步任务池   
+kelvins-gpool   
 ++自定义配置项，根据项目本身而定    
-micro-mall-api/etcd/app.ini#EmailConfig就属于自定义配置项    
+micro-mall-api/etc/app.ini#EmailConfig就属于自定义配置项    
+
+--启动flag参数   
+说明：flag参数优先级高于配置文件中同名配置参数，flag参数均可不指定，默认从进程运行目录/etc/app.ini加载，日志文件路径默认在进程运行目录/logs   
+-logger_level 日志级别   
+-logger_path  日志文件路径   
+-conf_file  配置文件（ini文件）路径
+
+### APP注册参考
+请在你的应用main.go中注册application
+```go
+package main
+
+import (
+        "crypto/tls"
+	"gitee.com/cristiane/micro-mall-pay/startup"
+	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/app"
+)
+
+const APP_NAME = "micro-mall-pay"
+
+func main() {
+	application := &kelvins.GRPCApplication{
+		Application: &kelvins.Application{
+			LoadConfig: startup.LoadConfig,
+			SetupVars:  startup.SetupVars,
+			Name:       APP_NAME,
+		},
+		TlsConfig: &tls.Config{
+			// 配置应用证书，仅仅对grpc,http类应用支持
+		},
+		RegisterGRPCServer: startup.RegisterGRPCServer,
+		RegisterGateway:    startup.RegisterGateway,
+		RegisterHttpRoute:  startup.RegisterHttpRoute,
+	}
+	app.RunGRPCApplication(application)
+}
+```
+
+### 业务应用
+micro-mall-api系列共计16个服务：https://gitee.com/cristiane/micro-mall-api
 
 ###技术交流
 QQ群：578859618   

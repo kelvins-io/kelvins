@@ -1,10 +1,27 @@
 package setting
 
+import "time"
+
 // ServerSettingS defines for grpc server.
 type ServerSettingS struct {
 	EndPoint             string
 	IsRecordCallResponse bool
 	PIDFile              string
+	ReadTimeout          int
+	WriteTimeout         int
+	IdleTimeout          int
+}
+
+func (s *ServerSettingS) GetReadTimeout() time.Duration  {
+	return time.Duration(s.ReadTimeout)*time.Second
+}
+
+func (s *ServerSettingS) GetWriteTimeout() time.Duration  {
+	return time.Duration(s.WriteTimeout)*time.Second
+}
+
+func (s *ServerSettingS) GetIdleTimeout() time.Duration  {
+	return time.Duration(s.IdleTimeout)*time.Second
 }
 
 // 日志

@@ -13,14 +13,17 @@ import (
 // NewHttpServer ...
 func NewHttpServer(handler http.Handler, tlsConfig *tls.Config, serverSetting *setting.ServerSettingS) *http.Server {
 	return &http.Server{
-		Addr:      serverSetting.EndPoint,
-		Handler:   handler,
-		TLSConfig: tlsConfig,
+		Addr:         serverSetting.EndPoint,
+		Handler:      handler,
+		TLSConfig:    tlsConfig,
+		ReadTimeout:  serverSetting.GetReadTimeout(),
+		WriteTimeout: serverSetting.GetWriteTimeout(),
+		IdleTimeout:  serverSetting.GetIdleTimeout(),
 	}
 }
 
 // gRPCHandlerFunc ...
-func GRPCHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Handler {
+func GRPCHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler, serverSetting *setting.ServerSettingS) http.Handler {
 	if otherHandler == nil {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			grpcServer.ServeHTTP(w, r)
@@ -41,5 +44,7 @@ func GRPCHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 			}
 			otherHandler.ServeHTTP(w, r)
 		}
-	}), &http2.Server{})
+	}), &http2.Server{
+		IdleTimeout: serverSetting.GetIdleTimeout(),
+	})
 }
