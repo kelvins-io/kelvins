@@ -12,6 +12,7 @@ require (
 	github.com/cloudflare/tableflip v1.2.2
 	github.com/coreos/etcd v3.3.22+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/gin-gonic/gin v1.7.1
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/gogap/errors v0.0.0-20200228125012-531a6449b28c // indirect

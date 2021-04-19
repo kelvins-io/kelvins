@@ -26,7 +26,6 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 	if err != nil {
 		logging.Fatalf("RunQueueApplication err: %v", err)
 	}
-	<-kprocess.Exit()
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
@@ -102,8 +101,8 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	logging.Infof("Count of worker goroutine: %d", concurrency)
 	consumerTag := queueApp.Application.Name + convert.Int64ToStr(time.Now().Local().UnixNano())
 
-	// process listen
-	_, err = kprocess.Listen("", "", kelvins.PIDFile)
+	kp := new(kprocess.KProcess)
+	_, err = kp.Listen("", "", kelvins.PIDFile)
 	if err != nil {
 		return err
 	}
@@ -120,8 +119,10 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 		worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
 		worker.LaunchAsync(errorsChan)
 	}
+	err = <-errorsChan
+	<-kp.Exit() // worker can listen Interrupt,SIGTERM signal stop
 
-	return <-errorsChan
+	return err
 }
 
 // setupQueueVars ...

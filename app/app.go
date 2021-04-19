@@ -52,6 +52,14 @@ func initApplication(application *kelvins.Application) error {
 // setupCommonVars setup application global vars.
 func setupCommonVars(application *kelvins.Application) error {
 	var err error
+	if kelvins.ServerSetting != nil {
+		if  kelvins.ServerSetting.PIDFile != "" {
+			kelvins.PIDFile = kelvins.ServerSetting.PIDFile
+		} else {
+			wd, _ := os.Getwd()
+			kelvins.PIDFile = fmt.Sprintf("%s/%s.pid", wd, application.Name)
+		}
+	}
 
 	if kelvins.MysqlSetting != nil && kelvins.MysqlSetting.Host != "" {
 		kelvins.GORM_DBEngine, err = setup.NewMySQLWithGORM(kelvins.MysqlSetting)
@@ -77,13 +85,6 @@ func setupCommonVars(application *kelvins.Application) error {
 
 	if kelvins.GPoolSetting != nil && kelvins.GPoolSetting.JobChanLen > 0 && kelvins.GPoolSetting.WorkerNum > 0 {
 		kelvins.GPool = goroutine.NewPool(kelvins.GPoolSetting.WorkerNum, kelvins.GPoolSetting.JobChanLen)
-	}
-
-	if kelvins.ServerSetting != nil && kelvins.ServerSetting.PIDFile != "" {
-		kelvins.PIDFile = kelvins.ServerSetting.PIDFile
-	} else {
-		wd, _ := os.Getwd()
-		kelvins.PIDFile = fmt.Sprintf("%s/%s.pid", wd, kelvins.ServerName)
 	}
 
 	kelvins.FrameworkLogger, err = log.GetCustomLogger("framework", "framework")

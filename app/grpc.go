@@ -31,7 +31,6 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 	if err != nil {
 		logging.Fatalf("App.RunGRPC err: %v", err)
 	}
-	<-kprocess.Exit()
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
@@ -177,9 +176,14 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 
 	// 8. start server
 	logging.Infof("Start http server listen %s", kelvins.ServerSetting.EndPoint)
-	ln, err := kprocess.Listen("tcp", kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
+	network := "tcp"
+	if kelvins.ServerSetting.Network != "" {
+		network = kelvins.ServerSetting.Network
+	}
+	kp := new(kprocess.KProcess)
+	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("TCP Listen err: %v", err)
+		return fmt.Errorf("%s Listen err: %v", network, err)
 	}
 	go func() {
 		err = grpcApp.HttpServer.Serve(ln)
@@ -187,6 +191,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 			logging.Fatalf("HttpServer serve err: %v", err)
 		}
 	}()
+	<-kp.Exit()
 
 	return err
 }

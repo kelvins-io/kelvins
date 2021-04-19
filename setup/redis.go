@@ -19,12 +19,9 @@ func NewRedis(redisSetting *setting.RedisSettingS) (*redis.Pool, error) {
 	if redisSetting.Password == "" {
 		return nil, fmt.Errorf("Lack of redisSetting.Password")
 	}
-	if redisSetting.PoolNum <= 0 {
-		return nil, fmt.Errorf("Wrong redisSetting.PoolNum config")
-	}
 
-	maxIdle := redisSetting.PoolNum
-	maxActive := redisSetting.PoolNum
+	maxIdle := redisSetting.MaxIdle
+	maxActive := redisSetting.MaxActive
 	if redisSetting.MaxActive > 0 && redisSetting.MaxIdle > 0 {
 		maxIdle = redisSetting.MaxIdle
 		maxActive = redisSetting.MaxActive

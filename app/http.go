@@ -14,6 +14,8 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/setup"
 	"gitee.com/kelvins-io/kelvins/internal/util"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
+	"github.com/gin-gonic/gin"
+	"net/http"
 	"strconv"
 )
 
@@ -27,7 +29,6 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 	if err != nil {
 		logging.Fatalf("App.RunHTTP err: %v", err)
 	}
-	<-kprocess.Exit()
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
@@ -125,7 +126,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		kelvins.ServerSetting.EndPoint = ":" + currentConfig.ServicePort
 	}
 
-	// 6. register grpc and http
+	// 6. register http
 	httpApp.Mux = setup.NewServerMux()
 	if httpApp.RegisterHttpRoute != nil {
 		err = httpApp.RegisterHttpRoute(httpApp.Mux)
@@ -133,8 +134,20 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 			return fmt.Errorf("httpApp.RegisterHttpRoute err: %v", err)
 		}
 	}
+	var handler http.Handler = httpApp.Mux
+	if httpApp.RegisterHttpGinEngine != nil {
+		var httpGinEng *gin.Engine
+		httpGinEng, err = httpApp.RegisterHttpGinEngine()
+		if err != nil {
+			return fmt.Errorf("httpApp.RegisterHttpGinEngine err: %v", err)
+		}
+		if httpGinEng != nil {
+			handler = httpGinEng
+		}
+	}
+
 	httpApp.HttpServer = setup.NewHttpServer(
-		httpApp.Mux,
+		handler,
 		httpApp.TlsConfig,
 		kelvins.ServerSetting,
 	)
@@ -159,9 +172,14 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 
 	// 8. start server
 	logging.Infof("Start http server listen %s", kelvins.ServerSetting.EndPoint)
-	ln, err := kprocess.Listen("tcp", kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
+	network := "tcp"
+	if kelvins.ServerSetting.Network != "" {
+		network = kelvins.ServerSetting.Network
+	}
+	kp := new(kprocess.KProcess)
+	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("TCP Listen err: %v", err)
+		return fmt.Errorf("%s Listen err: %v", network, err)
 	}
 	go func() {
 		err = httpApp.HttpServer.Serve(ln)
@@ -169,8 +187,9 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 			logging.Fatalf("HttpServer serve err: %v", err)
 		}
 	}()
+	<-kp.Exit()
 
-	return err
+	return nil
 }
 
 func setupHTTPVars(httpApp *kelvins.HTTPApplication) error {

@@ -35,9 +35,6 @@ func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 	if mysqlSetting.Charset == "" {
 		return nil, fmt.Errorf("lack of mysqlSetting.Charset")
 	}
-	if mysqlSetting.PoolNum == 0 {
-		return nil, fmt.Errorf("lack of mysqlSetting.PoolNum")
-	}
 
 	var buf bytes.Buffer
 	buf.WriteString(mysqlSetting.UserName)
@@ -65,7 +62,7 @@ func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 		db.LogMode(true)
 	}
 
-	db.DB().SetConnMaxLifetime(30 * time.Second)
+	db.DB().SetConnMaxLifetime(3600 * time.Second)
 	if mysqlSetting.ConnMaxLifeSecond > 0 {
 		db.DB().SetConnMaxLifetime(time.Duration(mysqlSetting.ConnMaxLifeSecond) * time.Second)
 	}
@@ -103,9 +100,6 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 	if mysqlSetting.Charset == "" {
 		return nil, fmt.Errorf("lack of mysqlSetting.Charset")
 	}
-	if mysqlSetting.PoolNum == 0 {
-		return nil, fmt.Errorf("lack of mysqlSetting.PoolNum")
-	}
 
 	var buf bytes.Buffer
 	buf.WriteString(mysqlSetting.UserName)
@@ -134,7 +128,7 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 		engine.ShowSQL(true)
 	}
 
-	engine.SetConnMaxLifetime(30 * time.Second)
+	engine.SetConnMaxLifetime(3600 * time.Second)
 	if mysqlSetting.ConnMaxLifeSecond > 0 {
 		engine.SetConnMaxLifetime(time.Duration(mysqlSetting.ConnMaxLifeSecond) * time.Second)
 	}

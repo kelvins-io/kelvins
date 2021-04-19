@@ -26,15 +26,6 @@ func RunCronApplication(application *kelvins.CronApplication) {
 		logging.Fatalf("prepareCron err: %v", err)
 	}
 
-	// kprocess listen
-	_, err = kprocess.Listen("", "", kelvins.PIDFile)
-	if err != nil {
-		logging.Fatalf("kprocess listen err: %v", err)
-	}
-	logging.Info("Start cron")
-	application.Cron.Start()
-	<-kprocess.Exit()
-
 	appPrepareForceExit()
 	application.Cron.Stop()
 	err = appShutdown(application.Application)
@@ -97,31 +88,43 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 	// 5. register cron jobs
 	if cronApp.GenCronJobs != nil {
 		cronJobs := cronApp.GenCronJobs()
-		jobNameDict := map[string]int{}
-		for _, j := range cronJobs {
-			if j.Name == "" {
-				return fmt.Errorf("Lack of CronJob.Name")
-			}
-			if j.Spec == "" {
-				return fmt.Errorf("Lack of CronJob.Spec")
-			}
-			if j.Job == nil {
-				return fmt.Errorf("Lack of CronJob.Job")
-			}
-			if _, ok := jobNameDict[j.Name]; ok {
-				return fmt.Errorf("Repeat job name: %s", j.Name)
-			}
-			jobNameDict[j.Name] = 1
-			job := &cronJob{
-				logger: cronApp.CronLogger,
-				name:   j.Name,
-			}
-			_, err = cronApp.Cron.AddFunc(j.Spec, job.warpJob(j.Job))
-			if err != nil {
-				return fmt.Errorf("Cron.AddFunc err: %v", err)
+		if len(cronJobs) != 0 {
+			jobNameDict := map[string]int{}
+			for _, j := range cronJobs {
+				if j.Name == "" {
+					return fmt.Errorf("Lack of CronJob.Name")
+				}
+				if j.Spec == "" {
+					return fmt.Errorf("Lack of CronJob.Spec")
+				}
+				if j.Job == nil {
+					return fmt.Errorf("Lack of CronJob.Job")
+				}
+				if _, ok := jobNameDict[j.Name]; ok {
+					return fmt.Errorf("Repeat job name: %s", j.Name)
+				}
+				jobNameDict[j.Name] = 1
+				job := &cronJob{
+					logger: cronApp.CronLogger,
+					name:   j.Name,
+				}
+				_, err = cronApp.Cron.AddFunc(j.Spec, job.warpJob(j.Job))
+				if err != nil {
+					return fmt.Errorf("Cron.AddFunc err: %v", err)
+				}
 			}
 		}
 	}
+
+	// 6. run cron app
+	kp := new(kprocess.KProcess)
+	_, err = kp.Listen("", "", kelvins.PIDFile)
+	if err != nil {
+		logging.Fatalf("kprocess listen err: %v", err)
+	}
+	logging.Info("Start cron task")
+	cronApp.Cron.Start()
+	<-kp.Exit()
 
 	return nil
 }

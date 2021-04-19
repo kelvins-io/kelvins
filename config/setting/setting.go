@@ -4,6 +4,7 @@ import "time"
 
 // ServerSettingS defines for grpc server.
 type ServerSettingS struct {
+	Network              string
 	EndPoint             string
 	IsRecordCallResponse bool
 	PIDFile              string
@@ -12,16 +13,16 @@ type ServerSettingS struct {
 	IdleTimeout          int
 }
 
-func (s *ServerSettingS) GetReadTimeout() time.Duration  {
-	return time.Duration(s.ReadTimeout)*time.Second
+func (s *ServerSettingS) GetReadTimeout() time.Duration {
+	return time.Duration(s.ReadTimeout) * time.Second
 }
 
-func (s *ServerSettingS) GetWriteTimeout() time.Duration  {
-	return time.Duration(s.WriteTimeout)*time.Second
+func (s *ServerSettingS) GetWriteTimeout() time.Duration {
+	return time.Duration(s.WriteTimeout) * time.Second
 }
 
-func (s *ServerSettingS) GetIdleTimeout() time.Duration  {
-	return time.Duration(s.IdleTimeout)*time.Second
+func (s *ServerSettingS) GetIdleTimeout() time.Duration {
+	return time.Duration(s.IdleTimeout) * time.Second
 }
 
 // 日志
@@ -37,7 +38,6 @@ type MysqlSettingS struct {
 	Password          string
 	DBName            string
 	Charset           string
-	PoolNum           int // 不建议继续使用，应使用 MaxIdle 和 MaxActive。
 	MaxIdle           int
 	MaxOpen           int
 	Loc               string
@@ -50,7 +50,6 @@ type MysqlSettingS struct {
 type RedisSettingS struct {
 	Host        string
 	Password    string
-	PoolNum     int // 不建议继续使用，应使用 MaxIdle 和 MaxActive。
 	MaxIdle     int
 	MaxActive   int
 	IdleTimeout int
