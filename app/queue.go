@@ -33,6 +33,7 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 	if err != nil {
 		logging.Fatalf("App.appShutdown err: %v", err)
 	}
+	logging.Info("App appShutdown over")
 }
 
 // runQueue runs queue application.
@@ -76,7 +77,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 
 	// 6. event server
 	if queueApp.EventServer != nil {
-		logging.Infof("Start event server consume")
+		logging.Info("Start event server consume")
 		// subscribe event
 		if queueApp.RegisterEventHandler != nil {
 			err := queueApp.RegisterEventHandler(queueApp.EventServer)
@@ -93,18 +94,18 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	}
 
 	// 7. queue server
-	logging.Infof("Start queue server consume")
+	logging.Info("Start queue server consume")
 	concurrency := len(queueApp.GetNamedTaskFuncs())
 	if kelvins.QueueServerSetting != nil {
 		concurrency = kelvins.QueueServerSetting.WorkerConcurrency
 	}
-	logging.Infof("Count of worker goroutine: %d", concurrency)
+	logging.Infof("Count of worker goroutine: %d\n", concurrency)
 	consumerTag := queueApp.Application.Name + convert.Int64ToStr(time.Now().Local().UnixNano())
 
 	kp := new(kprocess.KProcess)
 	_, err = kp.Listen("", "", kelvins.PIDFile)
 	if err != nil {
-		return err
+		logging.Fatalf("KProcess listen err: %v", err)
 	}
 	var queueList = []string{""}
 	queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
@@ -115,11 +116,12 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 			cTag = customQueue + "-" + consumerTag
 		}
 
-		logging.Infof("Consumer Tag: %s", cTag)
+		logging.Infof("Consumer Tag: %s\n", cTag)
 		worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
 		worker.LaunchAsync(errorsChan)
 	}
 	err = <-errorsChan
+
 	<-kp.Exit() // worker can listen Interrupt,SIGTERM signal stop
 
 	return err
@@ -141,7 +143,7 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	})
 
 	if queueApp.GetNamedTaskFuncs == nil && queueApp.RegisterEventHandler == nil {
-		return fmt.Errorf("Lack of implement GetNamedTaskFuncs And RegisterEventHandler")
+		return fmt.Errorf("lack of implement GetNamedTaskFuncs And RegisterEventHandler")
 	}
 	if kelvins.QueueRedisSetting != nil && kelvins.QueueRedisSetting.Broker != "" {
 		queueApp.QueueServer, err = setup.NewRedisQueue(kelvins.QueueRedisSetting, queueApp.GetNamedTaskFuncs())
@@ -188,7 +190,7 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 		return nil
 	}
 
-	return fmt.Errorf("Lack of kelvinsQueue* section config")
+	return fmt.Errorf("lack of kelvinsQueue* section config")
 }
 
 // queueLogger implements machinery log interface.

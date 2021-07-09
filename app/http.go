@@ -40,6 +40,7 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 	if err != nil {
 		logging.Fatalf("App.appShutdown err: %v", err)
 	}
+	logging.Info("App appShutdown over")
 }
 
 func runHTTP(httpApp *kelvins.HTTPApplication) error {
@@ -154,7 +155,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 
 	// 7. register  event producer
 	if httpApp.EventServer != nil {
-		logging.Infof("Start event server consume")
+		logging.Info("Start event server consume")
 		// subscribe event
 		if httpApp.RegisterEventProducer != nil {
 			err := httpApp.RegisterEventProducer(httpApp.EventServer)
@@ -171,7 +172,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	}
 
 	// 8. start server
-	logging.Infof("Start http server listen %s", kelvins.ServerSetting.EndPoint)
+	logging.Infof("Start http server listen %s\n", kelvins.ServerSetting.EndPoint)
 	network := "tcp"
 	if kelvins.ServerSetting.Network != "" {
 		network = kelvins.ServerSetting.Network
@@ -179,7 +180,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	kp := new(kprocess.KProcess)
 	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("%s Listen err: %v", network, err)
+		return fmt.Errorf("KProcess Listen %s err: %v", network, err)
 	}
 	go func() {
 		err = httpApp.HttpServer.Serve(ln)
@@ -187,6 +188,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 			logging.Fatalf("HttpServer serve err: %v", err)
 		}
 	}()
+
 	<-kp.Exit()
 
 	return nil

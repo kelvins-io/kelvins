@@ -32,6 +32,7 @@ func RunCronApplication(application *kelvins.CronApplication) {
 	if err != nil {
 		logging.Fatalf("App.appShutdown err: %v", err)
 	}
+	logging.Info("Cron App.appShutdown over")
 }
 
 // prepareCron prepares cron application.
@@ -69,7 +70,7 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 
 	// 4  register event handler
 	if cronApp.EventServer != nil && cronApp.RegisterEventHandler != nil {
-		logging.Infof("Start event server consume")
+		logging.Info("Start event server consume")
 		// subscribe event
 		if cronApp.RegisterEventHandler != nil {
 			err := cronApp.RegisterEventHandler(cronApp.EventServer)
@@ -120,10 +121,11 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 	kp := new(kprocess.KProcess)
 	_, err = kp.Listen("", "", kelvins.PIDFile)
 	if err != nil {
-		logging.Fatalf("kprocess listen err: %v", err)
+		logging.Fatalf("KProcess listen err: %v", err)
 	}
 	logging.Info("Start cron task")
 	cronApp.Cron.Start()
+
 	<-kp.Exit()
 
 	return nil

@@ -53,7 +53,7 @@ func initApplication(application *kelvins.Application) error {
 func setupCommonVars(application *kelvins.Application) error {
 	var err error
 	if kelvins.ServerSetting != nil {
-		if  kelvins.ServerSetting.PIDFile != "" {
+		if kelvins.ServerSetting.PIDFile != "" {
 			kelvins.PIDFile = kelvins.ServerSetting.PIDFile
 		} else {
 			wd, _ := os.Getwd()
@@ -125,7 +125,7 @@ func appPrepareForceExit() {
 	// after upg.Exit() is closed. No new upgrades can be
 	// performed if the parent doesn't exit.
 	time.AfterFunc(30*time.Second, func() {
-		logging.Infof("App Graceful shutdown timed out")
+		logging.Info("App Graceful shutdown timed out, force exit")
 		os.Exit(1)
 	})
 }
