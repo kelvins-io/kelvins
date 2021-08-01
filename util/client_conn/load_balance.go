@@ -69,9 +69,13 @@ func (r *kelvinsResolver) watchServiceConfig() {
 	}
 
 	r.cc.UpdateState(resolver.State{Addresses: address})
+	ctx := context.Background()
+	kelvins.AccessLogger.Infof(ctx, "kelvinsResolver watchServiceConfig UpdateState serviceName(%v), address: %+v", serviceName, address)
 }
 
 func (r *kelvinsResolver) ResolveNow(o resolver.ResolveNowOptions) {
+	ctx := context.Background()
+	kelvins.AccessLogger.Infof(ctx, "kelvinsResolver ResolveNow ")
 	r.watchServiceConfig()
 }
 func (*kelvinsResolver) Close() {}
