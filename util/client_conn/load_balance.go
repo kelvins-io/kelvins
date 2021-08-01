@@ -22,7 +22,7 @@ func (*kelvinsResolverBuilder) Build(target resolver.Target, cc resolver.ClientC
 		cc:     cc,
 	}
 
-	//go r.start()
+	r.watchServiceConfig()
 
 	return r, nil
 }
@@ -55,7 +55,7 @@ func (r *kelvinsResolver) watchServiceConfig() {
 	serviceConfigs, err := serviceConfigClient.GetConfigs()
 	if err != nil {
 		r.cc.ReportError(err)
-		kelvins.ErrLogger.Errorf(context.Background(), "watchServiceConfig GetConfigs err: %v, serviceName: %v", err, serviceName)
+		kelvins.FrameworkLogger.Errorf(context.Background(), "@@watchServiceConfig GetConfigs err: %v, serviceName: %v", err, serviceName)
 		return
 	}
 
@@ -70,12 +70,12 @@ func (r *kelvinsResolver) watchServiceConfig() {
 
 	r.cc.UpdateState(resolver.State{Addresses: address})
 	ctx := context.Background()
-	kelvins.AccessLogger.Infof(ctx, "kelvinsResolver watchServiceConfig UpdateState serviceName(%v), address: %+v", serviceName, address)
+	kelvins.FrameworkLogger.Infof(ctx, "@@kelvinsResolver watchServiceConfig UpdateState serviceName(%v), address: %+v", serviceName, address)
 }
 
 func (r *kelvinsResolver) ResolveNow(o resolver.ResolveNowOptions) {
 	ctx := context.Background()
-	kelvins.AccessLogger.Infof(ctx, "kelvinsResolver ResolveNow ")
+	kelvins.FrameworkLogger.Infof(ctx, "@@kelvinsResolver ResolveNow ")
 	r.watchServiceConfig()
 }
 func (*kelvinsResolver) Close() {}
