@@ -95,8 +95,8 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	serviceLB := slb.NewService(etcdServerUrls, grpcApp.Name)
 	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
 	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
-	if err != nil {
-		return fmt.Errorf("serviceConfig.GetConfig err: %v", err)
+	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
+		return fmt.Errorf("serviceConfig.GetConfig err: %v sequence(%v)", err, currentPort)
 	}
 	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
 		return fmt.Errorf("serviceConfig.GetConfig currentPort(%v) exist", currentPort)

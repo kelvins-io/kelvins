@@ -2,6 +2,7 @@ package etcdconfig
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/kelvins"
@@ -17,6 +18,8 @@ const (
 	SERVICE         = "kelvins-service"
 	DEFAULT_CLUSTER = "load-balance"
 )
+
+var ErrServiceConfigKeyNotExist = errors.New("service config key not exist")
 
 type ServiceConfigClient struct {
 	ServiceLB *slb.ServiceLB
@@ -52,6 +55,9 @@ func (s *ServiceConfigClient) GetConfig(sequence string) (*Config, error) {
 	key := s.GetKeyName(s.ServiceLB.ServerName, sequence)
 	serviceInfo, err := client.NewKeysAPI(cli).Get(ctx, key, nil)
 	if err != nil {
+		if client.IsKeyNotFound(err) {
+			return nil, ErrServiceConfigKeyNotExist
+		}
 		return nil, fmt.Errorf("cli.Get err: %v, key: %v", err, key)
 	}
 
@@ -82,6 +88,9 @@ func (s *ServiceConfigClient) ClearConfig(sequence string) error {
 
 	_, err = client.NewKeysAPI(cli).Delete(ctx, key, nil)
 	if err != nil {
+		if client.IsKeyNotFound(err) {
+			return ErrServiceConfigKeyNotExist
+		}
 		return fmt.Errorf("cli.Delete err: %v key: %v", err, key)
 	}
 
@@ -132,6 +141,9 @@ func (s *ServiceConfigClient) listConfigs(key string) (map[string]*Config, error
 
 	serviceInfos, err := kapi.Get(ctx, key, nil)
 	if err != nil {
+		if client.IsKeyNotFound(err) {
+			return nil, ErrServiceConfigKeyNotExist
+		}
 		return nil, fmt.Errorf("cli.Get err: %v key: %v", err, key)
 	}
 
