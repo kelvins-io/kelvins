@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"gitee.com/kelvins-io/common/env"
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
@@ -83,7 +82,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	var flagPort int64
 	if grpcApp.Port > 0 { // use self define port to start process
 		flagPort = grpcApp.Port
-	} else if env.IsDevMode() {
+	} else {
 		flagPort = int64(util.RandInt(50000, 60000))
 	}
 	currentPort := strconv.Itoa(int(flagPort))
@@ -94,39 +93,20 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		return fmt.Errorf("can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
 	}
 	serviceLB := slb.NewService(etcdServerUrls, grpcApp.Name)
-	serviceConfig := etcdconfig.NewServiceConfig(serviceLB)
-	if env.IsDevMode() {
-		serviceConfigs, err := serviceConfig.GetConfigs()
-		if err != nil {
-			return fmt.Errorf("serviceConfig.GetConfigs err: %v", err)
-		}
-
-		currentKey := serviceConfig.GetKeyName(grpcApp.Name)
-		for key, value := range serviceConfigs {
-			if currentKey == key {
-				currentPort = value.ServicePort
-				break
-			}
-
-			if value.ServicePort == currentPort {
-				return fmt.Errorf("the service port is duplicated, please try again")
-			}
-		}
-		err = serviceConfig.WriteConfig(etcdconfig.Config{
-			ServiceVersion: kelvins.Version,
-			ServicePort:    currentPort,
-		})
-		if err != nil {
-			return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
-		}
-
-	} else if flagPort <= 0 {
-		currentConfig, err := serviceConfig.GetConfig()
-		if err != nil {
-			return fmt.Errorf("serviceConfig.GetConfig err: %v", err)
-		}
-
-		currentPort = currentConfig.ServicePort
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
+	if err != nil {
+		return fmt.Errorf("serviceConfig.GetConfig err: %v", err)
+	}
+	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
+		return fmt.Errorf("serviceConfig.GetConfig currentPort(%v) exist", currentPort)
+	}
+	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
+		ServiceVersion: kelvins.Version,
+		ServicePort:    currentPort,
+	})
+	if err != nil {
+		return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
 	}
 	kelvins.ServerSetting.EndPoint = ":" + currentPort
 
@@ -222,7 +202,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	serverInterceptors = append(serverInterceptors, appInterceptor.RecoveryGRPC)
 	serverInterceptors = append(serverInterceptors, appInterceptor.LoggingGRPC)
 	serverInterceptors = append(serverInterceptors, appInterceptor.AppGRPC)
-	serverInterceptors = append(serverInterceptors, appInterceptor.ErrorCodeGRPC)
+	//serverInterceptors = append(serverInterceptors, appInterceptor.ErrorCodeGRPC)
 	if len(grpcApp.UnaryServerInterceptors) > 0 {
 		serverInterceptors = append(serverInterceptors, grpcApp.UnaryServerInterceptors...)
 	}

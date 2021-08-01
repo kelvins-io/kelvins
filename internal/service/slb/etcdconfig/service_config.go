@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gitee.com/kelvins-io/common/json"
+	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/util"
 	"github.com/coreos/etcd/client"
@@ -13,11 +14,11 @@ import (
 
 const (
 	ROOT            = "/"
-	SERVICE         = "service"
-	DEFALUT_CLUSTER = "default"
+	SERVICE         = "kelvins-service"
+	DEFAULT_CLUSTER = "load-balance"
 )
 
-type ServiceConfig struct {
+type ServiceConfigClient struct {
 	ServiceLB *slb.ServiceLB
 	Config
 }
@@ -27,15 +28,19 @@ type Config struct {
 	ServicePort    string `json:"service_port"`
 }
 
-func NewServiceConfig(slb *slb.ServiceLB) *ServiceConfig {
-	return &ServiceConfig{ServiceLB: slb}
+func NewServiceConfigClient(slb *slb.ServiceLB) *ServiceConfigClient {
+	return &ServiceConfigClient{ServiceLB: slb}
 }
 
-func (s *ServiceConfig) GetKeyName(serverName string) string {
-	return ROOT + SERVICE + "." + serverName + "." + DEFALUT_CLUSTER
+func (s *ServiceConfigClient) GetKeyName(serverName string, sequences ...string) string {
+	key := ROOT + SERVICE + "." + serverName + "." + DEFAULT_CLUSTER + "@" + kelvins.Version
+	for _, s := range sequences {
+		key += "/" + s
+	}
+	return key
 }
 
-func (s *ServiceConfig) GetConfig() (*Config, error) {
+func (s *ServiceConfigClient) GetConfig(sequence string) (*Config, error) {
 	cli, err := util.NewEtcd(s.ServiceLB.EtcdServerUrl)
 	if err != nil {
 		return nil, fmt.Errorf("util.NewEtcdKeysAPI err: %v", err)
@@ -44,17 +49,17 @@ func (s *ServiceConfig) GetConfig() (*Config, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	key := s.GetKeyName(s.ServiceLB.ServerName)
+	key := s.GetKeyName(s.ServiceLB.ServerName, sequence)
 	serviceInfo, err := client.NewKeysAPI(cli).Get(ctx, key, nil)
 	if err != nil {
-		return nil, fmt.Errorf("cli.Get err: %v", err)
+		return nil, fmt.Errorf("cli.Get err: %v, key: %v", err, key)
 	}
 
 	var config Config
 	if len(serviceInfo.Node.Value) > 0 {
 		err = json.Unmarshal(serviceInfo.Node.Value, &config)
 		if err != nil {
-			return nil, fmt.Errorf("json.Unmarshal err: %v", err)
+			return nil, fmt.Errorf("json.Unmarshal err: %v, key: %v,values: %v", err, key, serviceInfo.Node.Value)
 		}
 	}
 
@@ -65,30 +70,57 @@ func (s *ServiceConfig) GetConfig() (*Config, error) {
 	return &config, nil
 }
 
-func (s *ServiceConfig) WriteConfig(c Config) error {
+func (s *ServiceConfigClient) ClearConfig(sequence string) error {
 	cli, err := util.NewEtcd(s.ServiceLB.EtcdServerUrl)
 	if err != nil {
 		return fmt.Errorf("util.NewEtcdKeysAPI err: %v", err)
 	}
 
-	key := s.GetKeyName(s.ServiceLB.ServerName)
+	key := s.GetKeyName(s.ServiceLB.ServerName, sequence)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	sconfig, err := json.MarshalToString(&c)
+	_, err = client.NewKeysAPI(cli).Delete(ctx, key, nil)
 	if err != nil {
-		return fmt.Errorf("json.MarshalToString err: %v", err)
-	}
-
-	_, err = client.NewKeysAPI(cli).Set(ctx, key, sconfig, nil)
-	if err != nil {
-		return fmt.Errorf("cli.Put err: %v", err)
+		return fmt.Errorf("cli.Delete err: %v key: %v", err, key)
 	}
 
 	return nil
 }
 
-func (s *ServiceConfig) GetConfigs() (map[string]*Config, error) {
+func (s *ServiceConfigClient) WriteConfig(sequence string, c Config) error {
+	cli, err := util.NewEtcd(s.ServiceLB.EtcdServerUrl)
+	if err != nil {
+		return fmt.Errorf("util.NewEtcdKeysAPI err: %v", err)
+	}
+
+	key := s.GetKeyName(s.ServiceLB.ServerName, sequence)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	jsonConfig, err := json.MarshalToString(&c)
+	if err != nil {
+		return fmt.Errorf("json.MarshalToString err: %v key: %v config: %+v", err, key, c)
+	}
+	_, err = client.NewKeysAPI(cli).Set(ctx, key, jsonConfig, &client.SetOptions{
+		PrevExist: client.PrevNoExist,
+	})
+	if err != nil {
+		return fmt.Errorf("cli.Set err: %v key: %v values: %v", err, key, jsonConfig)
+	}
+
+	return nil
+}
+
+func (s *ServiceConfigClient) ListConfigs() (map[string]*Config, error) {
+	return s.listConfigs("/")
+}
+
+func (s *ServiceConfigClient) GetConfigs() (map[string]*Config, error) {
+	return s.listConfigs(s.GetKeyName(s.ServiceLB.ServerName))
+}
+
+func (s *ServiceConfigClient) listConfigs(key string) (map[string]*Config, error) {
 	cli, err := util.NewEtcd(s.ServiceLB.EtcdServerUrl)
 	if err != nil {
 		return nil, fmt.Errorf("util.NewEtcdKeysAPI err: %v", err)
@@ -98,9 +130,9 @@ func (s *ServiceConfig) GetConfigs() (map[string]*Config, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	serviceInfos, err := kapi.Get(ctx, "/", nil)
+	serviceInfos, err := kapi.Get(ctx, key, nil)
 	if err != nil {
-		return nil, fmt.Errorf("cli.Get err: %v", err)
+		return nil, fmt.Errorf("cli.Get err: %v key: %v", err, key)
 	}
 
 	configs := make(map[string]*Config)
@@ -111,7 +143,7 @@ func (s *ServiceConfig) GetConfigs() (map[string]*Config, error) {
 				config := &Config{}
 				err := json.Unmarshal(info.Value, config)
 				if err != nil {
-					return nil, fmt.Errorf("json.UnmarshalByte err: %v", err)
+					return nil, fmt.Errorf("json.UnmarshalByte err: %v values: %v", err, info.Value)
 				}
 
 				configs[string(info.Key)] = config
