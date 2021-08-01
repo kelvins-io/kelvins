@@ -123,17 +123,17 @@ func appShutdown(application *kelvins.Application) error {
 		close(kelvins.AppCloseCh)
 	})
 
-	if kelvins.ServerSetting.EndPoint != "" {
+	if application.Type == kelvins.AppTypeHttp || application.Type == kelvins.AppTypeGrpc {
 		etcdServerUrls := config.GetEtcdV3ServerURLs()
 		if etcdServerUrls == "" {
-			return fmt.Errorf("can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
+			return fmt.Errorf("can't not found env '%s'\n", config.ENV_ETCDV3_SERVER_URLS)
 		}
 		serviceLB := slb.NewService(etcdServerUrls, application.Name)
 		serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
 		sequence := strings.TrimPrefix(kelvins.ServerSetting.EndPoint, ":")
 		err := serviceConfigClient.ClearConfig(sequence)
 		if err != nil {
-			return fmt.Errorf("serviceConfigClient GetConfig err: %v, key: %v", err, serviceConfigClient.GetKeyName(application.Name, sequence))
+			return fmt.Errorf("serviceConfigClient ClearConfig err: %v, key: %v\n", err, serviceConfigClient.GetKeyName(application.Name, sequence))
 		}
 	}
 

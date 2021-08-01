@@ -24,14 +24,14 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 
 	err := runQueue(application)
 	if err != nil {
-		logging.Infof("RunQueueApplication err: %v", err)
+		logging.Infof("RunQueueApplication err: %v\n", err)
 	}
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Infof("App.appShutdown err: %v", err)
+		logging.Infof("App.appShutdown err: %v\n", err)
 	}
 	logging.Info("App appShutdown over")
 }

@@ -26,18 +26,20 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 
 	err := runHTTP(application)
 	if err != nil {
-		logging.Fatalf("App.RunHTTP err: %v", err)
+		logging.Fatalf("App.RunHTTP err: %v\n", err)
 	}
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
-	err = application.HttpServer.Shutdown(context.Background())
-	if err != nil {
-		logging.Infof("App.HttpServer Shutdown err: %v", err)
+	if application.HttpServer != nil {
+		err = application.HttpServer.Shutdown(context.Background())
+		if err != nil {
+			logging.Infof("App.HttpServer Shutdown err: %v\n", err)
+		}
 	}
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Infof("App.appShutdown err: %v", err)
+		logging.Infof("App.appShutdown err: %v\n", err)
 	}
 	logging.Info("App appShutdown over")
 }

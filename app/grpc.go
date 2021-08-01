@@ -28,19 +28,23 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 
 	err := runGRPC(application)
 	if err != nil {
-		logging.Infof("gRPC App.RunGRPC err: %v", err)
+		logging.Infof("gRPC App.RunGRPC err: %v\n", err)
 	}
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
-	err = application.HttpServer.Shutdown(context.Background())
-	if err != nil {
-		logging.Infof("gRPC App HttpServer.Shutdown err: %v", err)
+	if application.HttpServer != nil {
+		err = application.HttpServer.Shutdown(context.Background())
+		if err != nil {
+			logging.Infof("gRPC App HttpServer.Shutdown err: %v\n", err)
+		}
 	}
-	application.GRPCServer.Stop()
+	if application.GRPCServer != nil {
+		application.GRPCServer.Stop()
+	}
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Infof("gRPC App.appShutdown err: %v", err)
+		logging.Infof("gRPC App.appShutdown err: %v\n", err)
 	}
 	logging.Info("gRPC App.appShutdown over")
 }

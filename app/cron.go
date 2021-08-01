@@ -23,14 +23,16 @@ func RunCronApplication(application *kelvins.CronApplication) {
 
 	err := prepareCron(application)
 	if err != nil {
-		logging.Infof("prepareCron err: %v", err)
+		logging.Infof("prepareCron err: %v\n", err)
 	}
 
 	appPrepareForceExit()
-	application.Cron.Stop()
+	if application.Cron != nil{
+		application.Cron.Stop()
+	}
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Infof("App.appShutdown err: %v", err)
+		logging.Infof("App.appShutdown err: %v\n", err)
 	}
 	logging.Info("Cron App.appShutdown over")
 }
