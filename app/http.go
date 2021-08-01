@@ -33,11 +33,11 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 	// Wait for connections to drain.
 	err = application.HttpServer.Shutdown(context.Background())
 	if err != nil {
-		logging.Fatalf("App.HttpServer Shutdown err: %v", err)
+		logging.Infof("App.HttpServer Shutdown err: %v", err)
 	}
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Fatalf("App.appShutdown err: %v", err)
+		logging.Infof("App.appShutdown err: %v", err)
 	}
 	logging.Info("App appShutdown over")
 }
@@ -171,7 +171,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	go func() {
 		err = httpApp.HttpServer.Serve(ln)
 		if err != nil {
-			logging.Fatalf("HttpServer serve err: %v", err)
+			logging.Infof("HttpServer serve err: %v", err)
 		}
 	}()
 

@@ -24,14 +24,14 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 
 	err := runQueue(application)
 	if err != nil {
-		logging.Fatalf("RunQueueApplication err: %v", err)
+		logging.Infof("RunQueueApplication err: %v", err)
 	}
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Fatalf("App.appShutdown err: %v", err)
+		logging.Infof("App.appShutdown err: %v", err)
 	}
 	logging.Info("App appShutdown over")
 }
@@ -105,7 +105,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	kp := new(kprocess.KProcess)
 	_, err = kp.Listen("", "", kelvins.PIDFile)
 	if err != nil {
-		logging.Fatalf("KProcess listen err: %v", err)
+		return fmt.Errorf("KProcess listen err: %v", err)
 	}
 	var queueList = []string{""}
 	queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)

@@ -28,19 +28,19 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 
 	err := runGRPC(application)
 	if err != nil {
-		logging.Fatalf("gRPC App.RunGRPC err: %v", err)
+		logging.Infof("gRPC App.RunGRPC err: %v", err)
 	}
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
 	err = application.HttpServer.Shutdown(context.Background())
 	if err != nil {
-		logging.Fatalf("gRPC App HttpServer.Shutdown err: %v", err)
+		logging.Infof("gRPC App HttpServer.Shutdown err: %v", err)
 	}
 	application.GRPCServer.Stop()
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Fatalf("gRPC App.appShutdown err: %v", err)
+		logging.Infof("gRPC App.appShutdown err: %v", err)
 	}
 	logging.Info("gRPC App.appShutdown over")
 }
@@ -164,12 +164,12 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	kp := new(kprocess.KProcess)
 	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		logging.Fatalf("gRPC KProcess Listen %s err: %v", network, err)
+		return fmt.Errorf("gRPC KProcess Listen %s err: %v", network, err)
 	}
 	go func() {
 		err = grpcApp.HttpServer.Serve(ln)
 		if err != nil {
-			logging.Fatalf("gRPC HttpServer serve err: %v", err)
+			logging.Infof("gRPC HttpServer serve err: %v", err)
 		}
 	}()
 
