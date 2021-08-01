@@ -3,6 +3,9 @@ package client_conn
 import (
 	"context"
 	"fmt"
+	"gitee.com/kelvins-io/kelvins/internal/config"
+	"gitee.com/kelvins-io/kelvins/internal/service/slb"
+	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
@@ -30,6 +33,7 @@ func NewConnClient(serviceName string) (*ConnClient, error) {
 	}, nil
 }
 
+// return a valid connection as much as possible
 func (c *ConnClient) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
 	target := fmt.Sprintf("%s:///%s", kelvinsScheme, c.ServerName)
 	return grpc.DialContext(
@@ -37,6 +41,21 @@ func (c *ConnClient) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
 		target,
 		opts...,
 	)
+}
+
+// the returned endpoint list may have invalid nodes
+func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err error) {
+	etcdServerUrls := config.GetEtcdV3ServerURLs()
+	serviceLB := slb.NewService(etcdServerUrls, c.ServerName)
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	serviceConfigs, err := serviceConfigClient.GetConfigs()
+	if err != nil {
+		return
+	}
+	for _, value := range serviceConfigs {
+		endpoints = append(endpoints, value.ServicePort)
+	}
+	return
 }
 
 func init() {
