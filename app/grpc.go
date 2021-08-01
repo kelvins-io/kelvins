@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"gitee.com/kelvins-io/common/env"
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
@@ -29,19 +28,23 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 
 	err := runGRPC(application)
 	if err != nil {
-		logging.Fatalf("gRPC App.RunGRPC err: %v", err)
+		logging.Infof("gRPC App.RunGRPC err: %v\n", err)
 	}
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
-	err = application.HttpServer.Shutdown(context.Background())
-	if err != nil {
-		logging.Fatalf("gRPC App HttpServer.Shutdown err: %v", err)
+	if application.HttpServer != nil {
+		err = application.HttpServer.Shutdown(context.Background())
+		if err != nil {
+			logging.Infof("gRPC App HttpServer.Shutdown err: %v\n", err)
+		}
 	}
-	application.GRPCServer.Stop()
+	if application.GRPCServer != nil {
+		application.GRPCServer.Stop()
+	}
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Fatalf("gRPC App.appShutdown err: %v", err)
+		logging.Infof("gRPC App.appShutdown err: %v\n", err)
 	}
 	logging.Info("gRPC App.appShutdown over")
 }
@@ -83,7 +86,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	var flagPort int64
 	if grpcApp.Port > 0 { // use self define port to start process
 		flagPort = grpcApp.Port
-	} else if env.IsDevMode() {
+	} else {
 		flagPort = int64(util.RandInt(50000, 60000))
 	}
 	currentPort := strconv.Itoa(int(flagPort))
@@ -94,39 +97,20 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		return fmt.Errorf("can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
 	}
 	serviceLB := slb.NewService(etcdServerUrls, grpcApp.Name)
-	serviceConfig := etcdconfig.NewServiceConfig(serviceLB)
-	if env.IsDevMode() {
-		serviceConfigs, err := serviceConfig.GetConfigs()
-		if err != nil {
-			return fmt.Errorf("serviceConfig.GetConfigs err: %v", err)
-		}
-
-		currentKey := serviceConfig.GetKeyName(grpcApp.Name)
-		for key, value := range serviceConfigs {
-			if currentKey == key {
-				currentPort = value.ServicePort
-				break
-			}
-
-			if value.ServicePort == currentPort {
-				return fmt.Errorf("the service port is duplicated, please try again")
-			}
-		}
-		err = serviceConfig.WriteConfig(etcdconfig.Config{
-			ServiceVersion: kelvins.Version,
-			ServicePort:    currentPort,
-		})
-		if err != nil {
-			return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
-		}
-
-	} else if flagPort <= 0 {
-		currentConfig, err := serviceConfig.GetConfig()
-		if err != nil {
-			return fmt.Errorf("serviceConfig.GetConfig err: %v", err)
-		}
-
-		currentPort = currentConfig.ServicePort
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
+	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
+		return fmt.Errorf("serviceConfig.GetConfig err: %v sequence(%v)", err, currentPort)
+	}
+	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
+		return fmt.Errorf("serviceConfig.GetConfig currentPort(%v) exist", currentPort)
+	}
+	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
+		ServiceVersion: kelvins.Version,
+		ServicePort:    currentPort,
+	})
+	if err != nil {
+		return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
 	}
 	kelvins.ServerSetting.EndPoint = ":" + currentPort
 
@@ -184,12 +168,12 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	kp := new(kprocess.KProcess)
 	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		logging.Fatalf("gRPC KProcess Listen %s err: %v", network, err)
+		return fmt.Errorf("gRPC KProcess Listen %s%s err: %v", network, kelvins.ServerSetting.EndPoint, err)
 	}
 	go func() {
 		err = grpcApp.HttpServer.Serve(ln)
 		if err != nil {
-			logging.Fatalf("gRPC HttpServer serve err: %v", err)
+			logging.Infof("gRPC HttpServer serve err: %v", err)
 		}
 	}()
 
@@ -222,7 +206,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	serverInterceptors = append(serverInterceptors, appInterceptor.RecoveryGRPC)
 	serverInterceptors = append(serverInterceptors, appInterceptor.LoggingGRPC)
 	serverInterceptors = append(serverInterceptors, appInterceptor.AppGRPC)
-	serverInterceptors = append(serverInterceptors, appInterceptor.ErrorCodeGRPC)
+	//serverInterceptors = append(serverInterceptors, appInterceptor.ErrorCodeGRPC)
 	if len(grpcApp.UnaryServerInterceptors) > 0 {
 		serverInterceptors = append(serverInterceptors, grpcApp.UnaryServerInterceptors...)
 	}

@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"gitee.com/kelvins-io/common/env"
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
@@ -27,18 +26,20 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 
 	err := runHTTP(application)
 	if err != nil {
-		logging.Fatalf("App.RunHTTP err: %v", err)
+		logging.Fatalf("App.RunHTTP err: %v\n", err)
 	}
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
-	err = application.HttpServer.Shutdown(context.Background())
-	if err != nil {
-		logging.Fatalf("App.HttpServer Shutdown err: %v", err)
+	if application.HttpServer != nil {
+		err = application.HttpServer.Shutdown(context.Background())
+		if err != nil {
+			logging.Infof("App.HttpServer Shutdown err: %v\n", err)
+		}
 	}
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Fatalf("App.appShutdown err: %v", err)
+		logging.Infof("App.appShutdown err: %v\n", err)
 	}
 	logging.Info("App appShutdown over")
 }
@@ -76,66 +77,39 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	}
 
 	// 4. set init service port
-	var currentPort int64
+	var flagPort int64
 	if httpApp.Port > 0 { // use self define port to start process
-		currentPort = httpApp.Port
+		flagPort = httpApp.Port
 	} else {
-		currentPort = int64(util.RandInt(50000, 60000))
+		flagPort = int64(util.RandInt(50000, 60000))
 	}
+	currentPort := strconv.Itoa(int(flagPort))
 
 	// 5. get etcd service port
 	etcdServerUrls := config.GetEtcdV3ServerURLs()
 	if etcdServerUrls == "" {
-		return fmt.Errorf("Can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
+		return fmt.Errorf("can't not found env '%s' ", config.ENV_ETCDV3_SERVER_URLS)
 	}
 	serviceLB := slb.NewService(etcdServerUrls, httpApp.Name)
-	serviceConfig := etcdconfig.NewServiceConfig(serviceLB)
-	if env.IsDevMode() {
-		finalPort := strconv.Itoa(int(currentPort))
-		serviceConfigs, err := serviceConfig.GetConfigs()
-		if err != nil {
-			return fmt.Errorf("serviceConfig.GetConfigs err: %v", err)
-		}
-
-		currentKey := serviceConfig.GetKeyName(httpApp.Name)
-		for key, value := range serviceConfigs {
-			if currentKey == key {
-				finalPort = value.ServicePort
-				break
-			}
-
-			if value.ServicePort == finalPort {
-				return fmt.Errorf("The service port is duplicated, please try again")
-			}
-		}
-
-		err = serviceConfig.WriteConfig(etcdconfig.Config{
-			ServiceVersion: kelvins.Version,
-			ServicePort:    finalPort,
-		})
-		if err != nil {
-			return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
-		}
-
-		kelvins.ServerSetting.EndPoint = ":" + finalPort
-	} else {
-		currentConfig, err := serviceConfig.GetConfig()
-		if err != nil {
-			return fmt.Errorf("serviceConfig.GetConfig err: %v", err)
-		}
-
-		kelvins.ServerSetting.EndPoint = ":" + currentConfig.ServicePort
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
+	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
+		return fmt.Errorf("serviceConfig.GetConfig err: %v ,sequence(%v)", err, currentPort)
 	}
+	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
+		return fmt.Errorf("serviceConfig.GetConfig sequence(%v) exist", currentPort)
+	}
+	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
+		ServiceVersion: kelvins.Version,
+		ServicePort:    currentPort,
+	})
+	if err != nil {
+		return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
+	}
+	kelvins.ServerSetting.EndPoint = ":" + currentPort
 
 	// 6. register http
-	httpApp.Mux = setup.NewServerMux()
-	if httpApp.RegisterHttpRoute != nil {
-		err = httpApp.RegisterHttpRoute(httpApp.Mux)
-		if err != nil {
-			return fmt.Errorf("httpApp.RegisterHttpRoute err: %v", err)
-		}
-	}
-	var handler http.Handler = httpApp.Mux
+	var handler http.Handler
 	if httpApp.RegisterHttpGinEngine != nil {
 		var httpGinEng *gin.Engine
 		httpGinEng, err = httpApp.RegisterHttpGinEngine()
@@ -143,8 +117,22 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 			return fmt.Errorf("httpApp.RegisterHttpGinEngine err: %v", err)
 		}
 		if httpGinEng != nil {
+			logging.Info("http handler selected [gin]")
 			handler = httpGinEng
 		}
+	} else {
+		httpApp.Mux = setup.NewServerMux()
+		if httpApp.RegisterHttpRoute != nil {
+			err = httpApp.RegisterHttpRoute(httpApp.Mux)
+			if err != nil {
+				return fmt.Errorf("httpApp.RegisterHttpRoute err: %v", err)
+			}
+		}
+		logging.Info("http handler selected [http.ServeMux]")
+		handler = httpApp.Mux
+	}
+	if handler == nil {
+		return fmt.Errorf("no http handler??? ")
 	}
 
 	httpApp.HttpServer = setup.NewHttpServer(
@@ -180,12 +168,12 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	kp := new(kprocess.KProcess)
 	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("KProcess Listen %s err: %v", network, err)
+		return fmt.Errorf("KProcess Listen %s%s err: %v", network, kelvins.ServerSetting.EndPoint, err)
 	}
 	go func() {
 		err = httpApp.HttpServer.Serve(ln)
 		if err != nil {
-			logging.Fatalf("HttpServer serve err: %v", err)
+			logging.Infof("HttpServer serve err: %v", err)
 		}
 	}()
 

@@ -75,3 +75,6 @@ var PIDFile string
 
 // ServerName is server name
 var ServerName string
+
+// AppCloseCh is app shutdown notice
+var AppCloseCh = make(chan struct{})

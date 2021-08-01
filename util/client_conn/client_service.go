@@ -2,11 +2,7 @@ package client_conn
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"gitee.com/kelvins-io/kelvins/internal/config"
-	"gitee.com/kelvins-io/kelvins/internal/service/slb"
-	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
@@ -19,41 +15,23 @@ var (
 	opts []grpc.DialOption
 )
 
-type Conn struct {
+type ConnClient struct {
 	ServerName string
-	ServerPort string
 }
 
-func NewConn(serviceName string) (*Conn, error) {
+func NewConnClient(serviceName string) (*ConnClient, error) {
 	serviceNames := strings.Split(serviceName, "-")
 	if len(serviceNames) < 1 {
-		return nil, errors.New("NewConn.serviceNames is empty")
-	}
-	etcdServerUrls := config.GetEtcdV3ServerURLs()
-	if len(etcdServerUrls) == 0 {
-		return nil, fmt.Errorf("Can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
-	}
-	// load cache get client config
-	currentConfig := loadClientConfig(serviceName)
-	if currentConfig == nil {
-		var err error
-		serviceLB := slb.NewService(etcdServerUrls, serviceName)
-		serviceConfig := etcdconfig.NewServiceConfig(serviceLB)
-		currentConfig, err = serviceConfig.GetConfig()
-		if err != nil {
-			return nil, fmt.Errorf("serviceConfig.GetConfig err: %v", err)
-		}
-		storeClientConfig(serviceName, currentConfig)
+		return nil, fmt.Errorf("serviceNames(%v) format not contain '-'", serviceName)
 	}
 
-	return &Conn{
+	return &ConnClient{
 		ServerName: serviceName,
-		ServerPort: currentConfig.ServicePort,
 	}, nil
 }
 
-func (c *Conn) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
-	target := c.ServerName + ":" + c.ServerPort
+func (c *ConnClient) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
+	target := fmt.Sprintf("%s:///%s", kelvinsScheme, c.ServerName)
 	return grpc.DialContext(
 		ctx,
 		target,
@@ -63,6 +41,7 @@ func (c *Conn) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
 
 func init() {
 	opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`))
 	opts = append(opts, grpc.WithUnaryInterceptor(
 		grpc_middleware.ChainUnaryClient(
 			grpc_interceptor.UnaryCtxHandleGRPC(),

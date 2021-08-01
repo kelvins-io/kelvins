@@ -23,14 +23,16 @@ func RunCronApplication(application *kelvins.CronApplication) {
 
 	err := prepareCron(application)
 	if err != nil {
-		logging.Fatalf("prepareCron err: %v", err)
+		logging.Infof("prepareCron err: %v\n", err)
 	}
 
 	appPrepareForceExit()
-	application.Cron.Stop()
+	if application.Cron != nil{
+		application.Cron.Stop()
+	}
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Fatalf("App.appShutdown err: %v", err)
+		logging.Infof("App.appShutdown err: %v\n", err)
 	}
 	logging.Info("Cron App.appShutdown over")
 }
@@ -121,7 +123,7 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 	kp := new(kprocess.KProcess)
 	_, err = kp.Listen("", "", kelvins.PIDFile)
 	if err != nil {
-		logging.Fatalf("KProcess listen err: %v", err)
+		return fmt.Errorf("KProcess listen err: %v", err)
 	}
 	logging.Info("Start cron task")
 	cronApp.Cron.Start()
