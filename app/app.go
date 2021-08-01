@@ -133,7 +133,7 @@ func appShutdown(application *kelvins.Application) error {
 		sequence := strings.TrimPrefix(kelvins.ServerSetting.EndPoint, ":")
 		err := serviceConfigClient.ClearConfig(sequence)
 		if err != nil {
-			return fmt.Errorf("serviceConfigClient GetConfig err:%v, key: %v", err, serviceConfigClient.GetKeyName(application.Name, sequence))
+			return fmt.Errorf("serviceConfigClient GetConfig err: %v, key: %v", err, serviceConfigClient.GetKeyName(application.Name, sequence))
 		}
 	}
 

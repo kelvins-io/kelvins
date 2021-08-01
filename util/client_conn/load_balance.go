@@ -1,9 +1,7 @@
 package client_conn
 
 import (
-	"context"
 	"fmt"
-	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
@@ -54,13 +52,7 @@ func (r *kelvinsResolver) watchServiceConfig() {
 	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
 	serviceConfigs, err := serviceConfigClient.GetConfigs()
 	if err != nil {
-		r.cc.ReportError(err)
-		if kelvins.FrameworkLogger != nil {
-			kelvins.FrameworkLogger.Errorf(context.Background(), "@@watchServiceConfig GetConfigs err: %v, serviceName: %v", err, serviceName)
-		} else if kelvins.AccessLogger != nil {
-			kelvins.AccessLogger.Errorf(context.Background(), "@@watchServiceConfig GetConfigs err: %v, serviceName: %v", err, serviceName)
-		}
-
+		r.cc.ReportError(fmt.Errorf("serviceConfigClient GetConfigs err: %v, key suffix: %v", err, serviceName))
 		return
 	}
 
@@ -72,26 +64,15 @@ func (r *kelvinsResolver) watchServiceConfig() {
 			ServerName: serviceName,
 		})
 	}
-
-	r.cc.UpdateState(resolver.State{Addresses: address})
-	ctx := context.Background()
-	if kelvins.FrameworkLogger != nil {
-		kelvins.FrameworkLogger.Infof(ctx, "@@kelvinsResolver watchServiceConfig UpdateState serviceName(%v), address: %+v", serviceName, address)
-	} else if kelvins.AccessLogger != nil {
-		kelvins.AccessLogger.Infof(ctx, "@@kelvinsResolver watchServiceConfig UpdateState serviceName(%v), address: %+v", serviceName, address)
+	if len(address) > 0 {
+		r.cc.UpdateState(resolver.State{Addresses: address})
 	}
 }
 
 func (r *kelvinsResolver) ResolveNow(o resolver.ResolveNowOptions) {
-	ctx := context.Background()
-	if kelvins.FrameworkLogger != nil {
-		kelvins.FrameworkLogger.Infof(ctx, "@@kelvinsResolver ResolveNow ")
-	} else if kelvins.AccessLogger != nil {
-		kelvins.AccessLogger.Infof(ctx, "@@kelvinsResolver ResolveNow ")
-	}
-
 	r.watchServiceConfig()
 }
+
 func (*kelvinsResolver) Close() {}
 
 func init() {

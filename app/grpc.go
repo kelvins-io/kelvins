@@ -164,7 +164,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	kp := new(kprocess.KProcess)
 	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("gRPC KProcess Listen %s err: %v", network, err)
+		return fmt.Errorf("gRPC KProcess Listen %s%s err: %v", network, kelvins.ServerSetting.EndPoint, err)
 	}
 	go func() {
 		err = grpcApp.HttpServer.Serve(ln)

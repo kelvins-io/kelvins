@@ -166,7 +166,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	kp := new(kprocess.KProcess)
 	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("KProcess Listen %s err: %v", network, err)
+		return fmt.Errorf("KProcess Listen %s%s err: %v", network, kelvins.ServerSetting.EndPoint, err)
 	}
 	go func() {
 		err = httpApp.HttpServer.Serve(ln)

@@ -2,7 +2,6 @@ package client_conn
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -23,7 +22,7 @@ type ConnClient struct {
 func NewConnClient(serviceName string) (*ConnClient, error) {
 	serviceNames := strings.Split(serviceName, "-")
 	if len(serviceNames) < 1 {
-		return nil, errors.New("serviceNames is empty")
+		return nil, fmt.Errorf("serviceNames(%v) format not contain '-'", serviceName)
 	}
 
 	return &ConnClient{
