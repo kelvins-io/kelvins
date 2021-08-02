@@ -61,7 +61,6 @@ func (r *kelvinsResolver) watchServiceConfig() {
 		addr := fmt.Sprintf("%v:%v", serviceName, value.ServicePort)
 		address = append(address, resolver.Address{
 			Addr:       addr,
-			ServerName: serviceName,
 		})
 	}
 	if len(address) > 0 {
