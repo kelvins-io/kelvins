@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"gitee.com/kelvins-io/common/convert"
 	"gitee.com/kelvins-io/common/event"
@@ -11,6 +10,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/setup"
+	"gitee.com/kelvins-io/kelvins/util/kprocess"
 	queue_log "github.com/RichardKnop/machinery/v1/log"
 	"time"
 )
@@ -20,14 +20,20 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 	if application.Name == "" {
 		logging.Fatal("Application name can't not be empty")
 	}
-
-	flag.Parse()
-	application.LoggerRootPath = *loggerPath
 	application.Type = kelvins.AppTypeQueue
+
 	err := runQueue(application)
 	if err != nil {
-		logging.Fatalf("RunQueueApplication err: %v", err)
+		logging.Infof("RunQueueApplication err: %v\n", err)
 	}
+
+	appPrepareForceExit()
+	// Wait for connections to drain.
+	err = appShutdown(application.Application)
+	if err != nil {
+		logging.Infof("App.appShutdown err: %v\n", err)
+	}
+	logging.Info("App appShutdown over")
 }
 
 // runQueue runs queue application.
@@ -71,7 +77,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 
 	// 6. event server
 	if queueApp.EventServer != nil {
-		logging.Infof("Start event server consume")
+		logging.Info("Start event server consume")
 		// subscribe event
 		if queueApp.RegisterEventHandler != nil {
 			err := queueApp.RegisterEventHandler(queueApp.EventServer)
@@ -88,14 +94,19 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	}
 
 	// 7. queue server
-	logging.Infof("Start queue server consume")
+	logging.Info("Start queue server consume")
 	concurrency := len(queueApp.GetNamedTaskFuncs())
 	if kelvins.QueueServerSetting != nil {
 		concurrency = kelvins.QueueServerSetting.WorkerConcurrency
 	}
-	logging.Infof("Count of worker goroutine: %d", concurrency)
+	logging.Infof("Count of worker goroutine: %d\n", concurrency)
 	consumerTag := queueApp.Application.Name + convert.Int64ToStr(time.Now().Local().UnixNano())
 
+	kp := new(kprocess.KProcess)
+	_, err = kp.Listen("", "", kelvins.PIDFile)
+	if err != nil {
+		return fmt.Errorf("KProcess listen err: %v", err)
+	}
 	var queueList = []string{""}
 	queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
 
@@ -105,12 +116,15 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 			cTag = customQueue + "-" + consumerTag
 		}
 
-		logging.Infof("Consumer Tag: %s", cTag)
+		logging.Infof("Consumer Tag: %s\n", cTag)
 		worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
 		worker.LaunchAsync(errorsChan)
 	}
+	err = <-errorsChan
 
-	return <-errorsChan
+	<-kp.Exit() // worker can listen Interrupt,SIGTERM signal stop
+
+	return err
 }
 
 // setupQueueVars ...
@@ -129,7 +143,7 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	})
 
 	if queueApp.GetNamedTaskFuncs == nil && queueApp.RegisterEventHandler == nil {
-		return fmt.Errorf("Lack of implement GetNamedTaskFuncs And RegisterEventHandler")
+		return fmt.Errorf("lack of implement GetNamedTaskFuncs And RegisterEventHandler")
 	}
 	if kelvins.QueueRedisSetting != nil && kelvins.QueueRedisSetting.Broker != "" {
 		queueApp.QueueServer, err = setup.NewRedisQueue(kelvins.QueueRedisSetting, queueApp.GetNamedTaskFuncs())
@@ -176,7 +190,7 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 		return nil
 	}
 
-	return fmt.Errorf("Lack of kelvinsQueue* section config")
+	return fmt.Errorf("lack of kelvinsQueue* section config")
 }
 
 // queueLogger implements machinery log interface.

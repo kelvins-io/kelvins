@@ -3,6 +3,7 @@ package kelvins
 import (
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins/config/setting"
+	"gitee.com/kelvins-io/kelvins/util/goroutine"
 	"github.com/gomodule/redigo/redis"
 	"github.com/jinzhu/gorm"
 	"github.com/qiniu/qmgo"
@@ -62,3 +63,18 @@ var MongoDBSetting *setting.MongoDBSettingS
 
 // MongoDBClient is qmgo-client for mongodb.
 var MongoDBClient *qmgo.QmgoClient
+
+// GPoolSetting is gpool setting
+var GPoolSetting *setting.GPoolSettingS
+
+// GPool is goroutine pool
+var GPool *goroutine.Pool
+
+// PIDFile is process pid
+var PIDFile string
+
+// ServerName is server name
+var ServerName string
+
+// AppCloseCh is app shutdown notice
+var AppCloseCh = make(chan struct{})

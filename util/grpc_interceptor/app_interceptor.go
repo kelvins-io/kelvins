@@ -22,41 +22,30 @@ func (i *AppInterceptor) AppGRPC(ctx context.Context, req interface{}, info *grp
 	md.Append("kelvins-service-name", i.App.Name)
 	md.Append("kelvins-service-type", strconv.Itoa(int(i.App.Type)))
 	md.Append("kelvins-service-version", kelvins.Version)
-	newctx := metadata.NewIncomingContext(ctx, md)
-	return handler(newctx, req)
+	newCtx := metadata.NewIncomingContext(ctx, md)
+	return handler(newCtx, req)
 }
 
 // loggingGRPC logs GRPC request.
 func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	i.App.GKelvinsLogger.Infof(ctx,
-		"access request, grpc method: %s, req: %s",
-		info.FullMethod,
-		json.MarshalToStringNoError(req),
-	)
 	resp, err := handler(ctx, req)
 	s, _ := status.FromError(err)
 	if err != nil {
-		i.App.GKelvinsLogger.Infof(
+		i.App.GSysErrLogger.Errorf(
 			ctx,
-			"access response, grpc method: %s, response err: %v, details: %v",
+			"access response, grpc method: %s, req: %v, response err: %v, details: %v",
 			info.FullMethod,
+			json.MarshalToStringNoError(req),
 			s.Err().Error(),
 			json.MarshalToStringNoError(s.Details()),
 		)
 	} else if kelvins.ServerSetting.IsRecordCallResponse == true {
 		i.App.GKelvinsLogger.Infof(
 			ctx,
-			"access response, grpc method: %s, response: %s, details: %v",
+			"access response, grpc method: %s, req: %s, response: %s",
 			info.FullMethod,
+			json.MarshalToStringNoError(req),
 			json.MarshalToStringNoError(resp),
-			s.Details(),
-		)
-	} else {
-		i.App.GKelvinsLogger.Infof(
-			ctx,
-			"access response, grpc method: %s, details: %v",
-			info.FullMethod,
-			s.Details(),
 		)
 	}
 
@@ -68,7 +57,7 @@ func (i *AppInterceptor) RecoveryGRPC(ctx context.Context, req interface{}, info
 	defer func() {
 		if e := recover(); e != nil {
 			debug.PrintStack()
-			i.App.GSysErrLogger.Errorf(ctx, "app panic err: %v, stack: %s", e, string(debug.Stack()[:]))
+			i.App.GSysErrLogger.Errorf(ctx, "app panic err: %v, req: %s, stack: %s", e, json.MarshalToStringNoError(req), string(debug.Stack()[:]))
 		}
 	}()
 

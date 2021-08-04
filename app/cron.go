@@ -2,13 +2,13 @@ package app
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
+	"gitee.com/kelvins-io/kelvins/util/kprocess"
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"time"
@@ -19,21 +19,22 @@ func RunCronApplication(application *kelvins.CronApplication) {
 	if application.Name == "" {
 		logging.Fatal("Application name can't not be empty")
 	}
-
-	flag.Parse()
-	application.LoggerRootPath = *loggerPath
 	application.Type = kelvins.AppTypeCron
+
 	err := prepareCron(application)
 	if err != nil {
-		logging.Fatalf("prepareCron err: %v", err)
+		logging.Infof("prepareCron err: %v\n", err)
 	}
 
-	logging.Info("Start cron")
-	application.Cron.Start()
-	timer := time.NewTimer(time.Second * 10)
-	for range timer.C {
-		timer.Reset(time.Second * 10)
+	appPrepareForceExit()
+	if application.Cron != nil{
+		application.Cron.Stop()
 	}
+	err = appShutdown(application.Application)
+	if err != nil {
+		logging.Infof("App.appShutdown err: %v\n", err)
+	}
+	logging.Info("Cron App.appShutdown over")
 }
 
 // prepareCron prepares cron application.
@@ -71,7 +72,7 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 
 	// 4  register event handler
 	if cronApp.EventServer != nil && cronApp.RegisterEventHandler != nil {
-		logging.Infof("Start event server consume")
+		logging.Info("Start event server consume")
 		// subscribe event
 		if cronApp.RegisterEventHandler != nil {
 			err := cronApp.RegisterEventHandler(cronApp.EventServer)
@@ -90,31 +91,44 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 	// 5. register cron jobs
 	if cronApp.GenCronJobs != nil {
 		cronJobs := cronApp.GenCronJobs()
-		jobNameDict := map[string]int{}
-		for _, j := range cronJobs {
-			if j.Name == "" {
-				return fmt.Errorf("Lack of CronJob.Name")
-			}
-			if j.Spec == "" {
-				return fmt.Errorf("Lack of CronJob.Spec")
-			}
-			if j.Job == nil {
-				return fmt.Errorf("Lack of CronJob.Job")
-			}
-			if _, ok := jobNameDict[j.Name]; ok {
-				return fmt.Errorf("Repeat job name: %s", j.Name)
-			}
-			jobNameDict[j.Name] = 1
-			job := &cronJob{
-				logger: cronApp.CronLogger,
-				name:   j.Name,
-			}
-			_, err = cronApp.Cron.AddFunc(j.Spec, job.warpJob(j.Job))
-			if err != nil {
-				return fmt.Errorf("Cron.AddFunc err: %v", err)
+		if len(cronJobs) != 0 {
+			jobNameDict := map[string]int{}
+			for _, j := range cronJobs {
+				if j.Name == "" {
+					return fmt.Errorf("Lack of CronJob.Name")
+				}
+				if j.Spec == "" {
+					return fmt.Errorf("Lack of CronJob.Spec")
+				}
+				if j.Job == nil {
+					return fmt.Errorf("Lack of CronJob.Job")
+				}
+				if _, ok := jobNameDict[j.Name]; ok {
+					return fmt.Errorf("Repeat job name: %s", j.Name)
+				}
+				jobNameDict[j.Name] = 1
+				job := &cronJob{
+					logger: cronApp.CronLogger,
+					name:   j.Name,
+				}
+				_, err = cronApp.Cron.AddFunc(j.Spec, job.warpJob(j.Job))
+				if err != nil {
+					return fmt.Errorf("Cron.AddFunc err: %v", err)
+				}
 			}
 		}
 	}
+
+	// 6. run cron app
+	kp := new(kprocess.KProcess)
+	_, err = kp.Listen("", "", kelvins.PIDFile)
+	if err != nil {
+		return fmt.Errorf("KProcess listen err: %v", err)
+	}
+	logging.Info("Start cron task")
+	cronApp.Cron.Start()
+
+	<-kp.Exit()
 
 	return nil
 }

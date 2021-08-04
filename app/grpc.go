@@ -2,9 +2,7 @@ package app
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"gitee.com/kelvins-io/common/env"
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
@@ -15,9 +13,9 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/setup"
 	"gitee.com/kelvins-io/kelvins/internal/util"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
+	"gitee.com/kelvins-io/kelvins/util/kprocess"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
-	"net"
 	"strconv"
 )
 
@@ -26,16 +24,29 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 	if application.Name == "" {
 		logging.Fatal("Application name can't not be empty")
 	}
-
-	flag.Parse()
-	application.Port = *port
-	application.LoggerRootPath = *loggerPath
 	application.Type = kelvins.AppTypeGrpc
 
 	err := runGRPC(application)
 	if err != nil {
-		logging.Fatalf("App.RunGRPC err: %v", err)
+		logging.Infof("gRPC App.RunGRPC err: %v\n", err)
 	}
+
+	appPrepareForceExit()
+	// Wait for connections to drain.
+	if application.HttpServer != nil {
+		err = application.HttpServer.Shutdown(context.Background())
+		if err != nil {
+			logging.Infof("gRPC App HttpServer.Shutdown err: %v\n", err)
+		}
+	}
+	if application.GRPCServer != nil {
+		application.GRPCServer.Stop()
+	}
+	err = appShutdown(application.Application)
+	if err != nil {
+		logging.Infof("gRPC App.appShutdown err: %v\n", err)
+	}
+	logging.Info("gRPC App.appShutdown over")
 }
 
 // runGRPC runs grpc application.
@@ -67,7 +78,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	if grpcApp.SetupVars != nil {
 		err = grpcApp.SetupVars()
 		if err != nil {
-			return fmt.Errorf("grpcApp.SetupVars err: %v", err)
+			return fmt.Errorf("App.SetupVars err: %v", err)
 		}
 	}
 
@@ -75,7 +86,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	var flagPort int64
 	if grpcApp.Port > 0 { // use self define port to start process
 		flagPort = grpcApp.Port
-	} else if env.IsDevMode() {
+	} else {
 		flagPort = int64(util.RandInt(50000, 60000))
 	}
 	currentPort := strconv.Itoa(int(flagPort))
@@ -83,42 +94,23 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	// 5. get etcd service port
 	etcdServerUrls := config.GetEtcdV3ServerURLs()
 	if etcdServerUrls == "" {
-		return fmt.Errorf("Can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
+		return fmt.Errorf("can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
 	}
 	serviceLB := slb.NewService(etcdServerUrls, grpcApp.Name)
-	serviceConfig := etcdconfig.NewServiceConfig(serviceLB)
-	if env.IsDevMode() {
-		serviceConfigs, err := serviceConfig.GetConfigs()
-		if err != nil {
-			return fmt.Errorf("serviceConfig.GetConfigs err: %v", err)
-		}
-
-		currentKey := serviceConfig.GetKeyName(grpcApp.Name)
-		for key, value := range serviceConfigs {
-			if currentKey == key {
-				currentPort = value.ServicePort
-				break
-			}
-
-			if value.ServicePort == currentPort {
-				return fmt.Errorf("The service port is duplicated, please try again")
-			}
-		}
-		err = serviceConfig.WriteConfig(etcdconfig.Config{
-			ServiceVersion: kelvins.Version,
-			ServicePort:    currentPort,
-		})
-		if err != nil {
-			return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
-		}
-
-	} else if flagPort <= 0 {
-		currentConfig, err := serviceConfig.GetConfig()
-		if err != nil {
-			return fmt.Errorf("serviceConfig.GetConfig err: %v", err)
-		}
-
-		currentPort = currentConfig.ServicePort
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
+	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
+		return fmt.Errorf("serviceConfig.GetConfig err: %v sequence(%v)", err, currentPort)
+	}
+	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
+		return fmt.Errorf("serviceConfig.GetConfig currentPort(%v) exist", currentPort)
+	}
+	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
+		ServiceVersion: kelvins.Version,
+		ServicePort:    currentPort,
+	})
+	if err != nil {
+		return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
 	}
 	kelvins.ServerSetting.EndPoint = ":" + currentPort
 
@@ -126,7 +118,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	if grpcApp.RegisterGRPCServer != nil {
 		err = grpcApp.RegisterGRPCServer(grpcApp.GRPCServer)
 		if err != nil {
-			return fmt.Errorf("grpcApp.RegisterGRPCServer err: %v", err)
+			return fmt.Errorf("App.RegisterGRPCServer err: %v", err)
 		}
 	}
 	if grpcApp.RegisterGateway != nil {
@@ -139,19 +131,19 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 			opts,
 		)
 		if err != nil {
-			return fmt.Errorf("grpcApp.RegisterGateway err: %v", err)
+			return fmt.Errorf("App.RegisterGateway err: %v", err)
 		}
 	}
 	if grpcApp.RegisterHttpRoute != nil {
 		err = grpcApp.RegisterHttpRoute(grpcApp.Mux)
 		if err != nil {
-			return fmt.Errorf("grpcApp.RegisterHttpRoute err: %v", err)
+			return fmt.Errorf("App.RegisterHttpRoute err: %v", err)
 		}
 	}
 
 	// 7. register event producer
 	if grpcApp.EventServer != nil {
-		logging.Infof("Start event server consume")
+		logging.Info("gRPC Start event server consume")
 		// subscribe event
 		if grpcApp.RegisterEventProducer != nil {
 			err := grpcApp.RegisterEventProducer(grpcApp.EventServer)
@@ -164,21 +156,30 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		if err != nil {
 			return err
 		}
-		logging.Info("Start event server")
+		logging.Info("gRPC Start event server")
 	}
 
 	// 8. start server
-	logging.Infof("Start http server listen %s", kelvins.ServerSetting.EndPoint)
-	conn, err := net.Listen("tcp", kelvins.ServerSetting.EndPoint)
-	if err != nil {
-		return fmt.Errorf("TCP Listen err: %v", err)
+	logging.Infof("gRPC Start http server listen %s\n", kelvins.ServerSetting.EndPoint)
+	network := "tcp"
+	if kelvins.ServerSetting.Network != "" {
+		network = kelvins.ServerSetting.Network
 	}
-	err = grpcApp.HttpServer.Serve(conn)
+	kp := new(kprocess.KProcess)
+	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("HttpServer serve err: %v", err)
+		return fmt.Errorf("gRPC KProcess Listen %s%s err: %v", network, kelvins.ServerSetting.EndPoint, err)
 	}
+	go func() {
+		err = grpcApp.HttpServer.Serve(ln)
+		if err != nil {
+			logging.Infof("gRPC HttpServer serve err: %v", err)
+		}
+	}()
 
-	return nil
+	<-kp.Exit()
+
+	return err
 }
 
 // setupGRPCVars ...
@@ -205,7 +206,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	serverInterceptors = append(serverInterceptors, appInterceptor.RecoveryGRPC)
 	serverInterceptors = append(serverInterceptors, appInterceptor.LoggingGRPC)
 	serverInterceptors = append(serverInterceptors, appInterceptor.AppGRPC)
-	serverInterceptors = append(serverInterceptors, appInterceptor.ErrorCodeGRPC)
+	//serverInterceptors = append(serverInterceptors, appInterceptor.ErrorCodeGRPC)
 	if len(grpcApp.UnaryServerInterceptors) > 0 {
 		serverInterceptors = append(serverInterceptors, grpcApp.UnaryServerInterceptors...)
 	}
@@ -219,7 +220,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	grpcApp.GatewayServeMux = setup.NewGateway()
 	grpcApp.Mux = setup.NewGatewayServerMux(grpcApp.GatewayServeMux)
 	grpcApp.HttpServer = setup.NewHttpServer(
-		setup.GRPCHandlerFunc(grpcApp.GRPCServer, grpcApp.Mux),
+		setup.GRPCHandlerFunc(grpcApp.GRPCServer, grpcApp.Mux, kelvins.ServerSetting),
 		grpcApp.TlsConfig,
 		kelvins.ServerSetting,
 	)

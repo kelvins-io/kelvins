@@ -6,6 +6,7 @@ import (
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/common/queue"
+	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/robfig/cron/v3"
 	"google.golang.org/grpc"
@@ -27,6 +28,7 @@ type Application struct {
 	LoggerLevel    string
 	LoadConfig     func() error
 	SetupVars      func() error
+	StopFunc       func() error
 }
 
 // GRPCApplication ...
@@ -85,6 +87,7 @@ type HTTPApplication struct {
 	Mux                   *http.ServeMux
 	HttpServer            *http.Server
 	RegisterHttpRoute     func(*http.ServeMux) error
+	RegisterHttpGinEngine func() (*gin.Engine,error) // can over RegisterHttpRoute
 	EventServer           *event.EventServer
 	RegisterEventProducer func(event.ProducerIface) error
 }
