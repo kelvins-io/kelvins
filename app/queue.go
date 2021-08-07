@@ -58,6 +58,10 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	}
 
 	// 3. setup vars
+	err = setupCommonVars(queueApp.Application)
+	if err != nil {
+		return err
+	}
 	err = setupQueueVars(queueApp)
 	if err != nil {
 		return err
@@ -67,6 +71,15 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// startup control
+	next, err := startUpControl(kelvins.PIDFile)
+	if err != nil {
+		return err
+	}
+	if !next {
+		return nil
 	}
 
 	// 4. apollo hot update listen
@@ -129,11 +142,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 
 // setupQueueVars ...
 func setupQueueVars(queueApp *kelvins.QueueApplication) error {
-	err := setupCommonVars(queueApp.Application)
-	if err != nil {
-		return err
-	}
-
+	var err error
 	queueApp.QueueLogger, err = log.GetBusinessLogger("queue.consume")
 	if err != nil {
 		return fmt.Errorf("kelvinslog.GetBusinessLogger: %v", err)

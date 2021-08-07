@@ -71,6 +71,10 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	}
 
 	// 3. setup vars
+	err = setupCommonVars(grpcApp.Application)
+	if err != nil {
+		return err
+	}
 	err = setupGRPCVars(grpcApp)
 	if err != nil {
 		return err
@@ -80,6 +84,15 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		if err != nil {
 			return fmt.Errorf("App.SetupVars err: %v", err)
 		}
+	}
+
+	// startup control
+	next, err := startUpControl(kelvins.PIDFile)
+	if err != nil {
+		return err
+	}
+	if !next {
+		return nil
 	}
 
 	// 4. set init service port
@@ -184,11 +197,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 
 // setupGRPCVars ...
 func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
-	err := setupCommonVars(grpcApp.Application)
-	if err != nil {
-		return err
-	}
-
+	var err error
 	grpcApp.GKelvinsLogger, err = log.GetAccessLogger("grpc.access")
 	if err != nil {
 		return fmt.Errorf("kelvinslog.GetAccessLogger: %v", err)
