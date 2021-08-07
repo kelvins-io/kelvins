@@ -5,7 +5,7 @@ go/golang微服务框架
 
 ### 支持特性
 注册服务，发现服务，grpc/http gateway，cron，queue，http/gin服务，插拔式配置加载，双orm支持，mysql，mongo支持，事件总线，日志，异步任务池，   
-Prometheus/pprof监控，进程优雅重启，应用自定义配置，启动flag参数指定，应用hook，工具类（由kelvins-io/common支持），全局变量vars，在线应用负载均衡
+Prometheus/pprof监控，进程优雅重启，应用自定义配置，启动flag参数指定，应用hook，工具类（由kelvins-io/common支持），全局变量vars，在线应用负载均衡，启动命令
 
 #### 即将支持
 限流，熔断，异常接入sentry，kelvins-tools工具箱（一键生成应用，运维部署等）
@@ -68,7 +68,10 @@ micro-mall-api/etc/app.ini#EmailConfig就属于自定义配置项
 说明：flag参数优先级高于配置文件中同名配置参数，flag参数均可不指定，默认从进程运行目录/etc/app.ini加载，日志文件路径默认在进程运行目录/logs   
 -logger_level 日志级别   
 -logger_path  日志文件路径   
--conf_file  配置文件（ini文件）路径
+-conf_file  配置文件（ini文件）路径   
+-s start 启动进程   
+-s restart 重启当前进程   
+-s stop 停止当前进程   
 
 ### APP注册参考
 请在你的应用main.go中注册application
@@ -114,7 +117,7 @@ func main() {
 2021-7-9 | 兼容Windows | https://gitee.com/cristiane | 修复Windows平台应用不能启动问题
 2021-8-1 | 应用退出执行函数优化 | https://gitee.com/cristiane | 应用退出时异常处理
 2021-8-1 | 应用支持负载均衡 | https://gitee.com/cristiane | 针对gRPC，http应用；同一应用多实例自动负载均衡
-
+2021-8-7 | 启动命令 | https://gitee.com/cristiane | -s启动参数，支持启动进程，重启进程，停止进程
 
 ### 业务应用
 micro-mall-api系列共计16个服务：https://gitee.com/cristiane/micro-mall-api
