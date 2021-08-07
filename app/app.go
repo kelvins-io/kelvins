@@ -11,6 +11,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/goroutine"
+	"gitee.com/kelvins-io/kelvins/util/startup"
 	"os"
 	"strings"
 	"sync"
@@ -23,8 +24,8 @@ const (
 )
 
 var (
-	flagLoggerLevel = flag.String("logger_level", "", "Set Logger Level.")
-	flagLoggerPath  = flag.String("logger_path", "", "Set Logger Root Path.")
+	flagLoggerLevel = flag.String("logger_level", "", "set logger level.")
+	flagLoggerPath  = flag.String("logger_path", "", "set logger root path.")
 )
 
 func initApplication(application *kelvins.Application) error {
@@ -119,6 +120,9 @@ func setupCommonVars(application *kelvins.Application) error {
 var appCloseChOne sync.Once
 
 func appShutdown(application *kelvins.Application) error {
+	if !execStopFunc {
+		return nil
+	}
 	appCloseChOne.Do(func() {
 		close(kelvins.AppCloseCh)
 	})
@@ -150,8 +154,21 @@ func appPrepareForceExit() {
 	// Make sure to set a deadline on exiting the process
 	// after upg.Exit() is closed. No new upgrades can be
 	// performed if the parent doesn't exit.
+	if !execStopFunc {
+		return
+	}
 	time.AfterFunc(30*time.Second, func() {
 		logging.Info("App Graceful shutdown timed out, force exit")
 		os.Exit(1)
 	})
+}
+
+var execStopFunc bool
+
+func startUpControl(pidFile string) (next bool, err error) {
+	next, err = startup.ParseCliCommand(pidFile)
+	if next {
+		execStopFunc = true
+	}
+	return
 }

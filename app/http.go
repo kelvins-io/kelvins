@@ -65,6 +65,10 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	}
 
 	// 3. setup vars
+	err = setupCommonVars(httpApp.Application)
+	if err != nil {
+		return err
+	}
 	err = setupHTTPVars(httpApp)
 	if err != nil {
 		return err
@@ -74,6 +78,15 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		if err != nil {
 			return fmt.Errorf("httpApp.SetupVars err: %v", err)
 		}
+	}
+
+	// startup control
+	next, err := startUpControl(kelvins.PIDFile)
+	if err != nil {
+		return err
+	}
+	if !next {
+		return nil
 	}
 
 	// 4. set init service port
@@ -183,11 +196,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 }
 
 func setupHTTPVars(httpApp *kelvins.HTTPApplication) error {
-	err := setupCommonVars(httpApp.Application)
-	if err != nil {
-		return err
-	}
-
+	var err error
 	httpApp.TraceLogger, err = log.GetAccessLogger("http.trace")
 	if err != nil {
 		return fmt.Errorf("kelvinslog.GetAccessLogger: %v", err)

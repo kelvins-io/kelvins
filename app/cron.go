@@ -27,7 +27,7 @@ func RunCronApplication(application *kelvins.CronApplication) {
 	}
 
 	appPrepareForceExit()
-	if application.Cron != nil{
+	if application.Cron != nil {
 		application.Cron.Stop()
 	}
 	err = appShutdown(application.Application)
@@ -59,6 +59,10 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 	}
 
 	// 3. setup vars
+	err = setupCommonVars(cronApp.Application)
+	if err != nil {
+		return err
+	}
 	err = setupCronVars(cronApp)
 	if err != nil {
 		return err
@@ -68,6 +72,15 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// startup control
+	next, err := startUpControl(kelvins.PIDFile)
+	if err != nil {
+		return err
+	}
+	if !next {
+		return nil
 	}
 
 	// 4  register event handler
@@ -135,11 +148,7 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 
 // setupCronVars ...
 func setupCronVars(cronApp *kelvins.CronApplication) error {
-	err := setupCommonVars(cronApp.Application)
-	if err != nil {
-		return err
-	}
-
+	var err error
 	cronApp.CronLogger, err = log.GetBusinessLogger("cron.schedule")
 	if err != nil {
 		return err
