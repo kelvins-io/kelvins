@@ -3,7 +3,7 @@ module gitee.com/kelvins-io/kelvins
 go 1.13
 
 require (
-	gitee.com/kelvins-io/common v1.0.9
+	gitee.com/kelvins-io/common v1.1.0
 	github.com/RichardKnop/machinery v1.9.1
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.685 // indirect
