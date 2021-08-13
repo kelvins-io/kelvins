@@ -270,7 +270,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		return fmt.Errorf("Setup.SetupGRPC err: %v", err)
 	}
 	if grpcApp.GRPCServer != nil && !grpcApp.DisableHealthCheck {
-		grpcApp.HealthServer = health.NewServer()
+		grpcApp.HealthServer = &kelvins.GRPCHealthServer{Server: health.NewServer()}
 		healthpb.RegisterHealthServer(grpcApp.GRPCServer, grpcApp.HealthServer)
 		if grpcApp.RegisterHealthServer != nil {
 			go func() {

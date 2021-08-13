@@ -39,7 +39,7 @@ type rpcCredentials struct {
 
 func (*rpcCredentials) RequireTransportSecurity() bool { return false }
 
-func (rc *rpcCredentials) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
+func (rc *rpcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	message := strconv.FormatInt(time.Now().Unix(), 10)
 	signature := hmacSign([]byte(rc.sharedSecret), message)
 

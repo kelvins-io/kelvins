@@ -37,9 +37,9 @@ type GRPCApplication struct {
 	*Application
 	Port                     int64
 	GRPCServer               *grpc.Server
-	HealthServer             *health.Server
+	HealthServer             *GRPCHealthServer
 	DisableHealthCheck       bool
-	RegisterHealthServer     func(*health.Server) // execute in the coroutine
+	RegisterHealthServer     func(*GRPCHealthServer) // execute in the coroutine
 	NumServerWorkers         uint32
 	GatewayServeMux          *runtime.ServeMux
 	Mux                      *http.ServeMux
@@ -55,6 +55,15 @@ type GRPCApplication struct {
 	RegisterHttpRoute        func(*http.ServeMux) error
 	EventServer              *event.EventServer
 	RegisterEventProducer    func(event.ProducerIface) error
+}
+
+type GRPCHealthServer struct {
+	*health.Server
+}
+
+// let go of health check
+func (a *GRPCHealthServer) AuthFuncOverride(ctx context.Context, fullMethodName string) (context.Context, error) {
+	return ctx, nil
 }
 
 // CronJob warps job define.
