@@ -29,17 +29,17 @@ func SetTokenValidityDuration(d time.Duration) {
 	tokenValidityDuration = d
 }
 
-func RPCCredentials(sharedSecret string) credentials.PerRPCCredentials {
-	return &rpcCredentials{sharedSecret: sharedSecret}
+func RPCPerCredentials(sharedSecret string) credentials.PerRPCCredentials {
+	return &rpcAuthPerCredentials{sharedSecret: sharedSecret}
 }
 
-type rpcCredentials struct {
+type rpcAuthPerCredentials struct {
 	sharedSecret string
 }
 
-func (*rpcCredentials) RequireTransportSecurity() bool { return false }
+func (*rpcAuthPerCredentials) RequireTransportSecurity() bool { return false }
 
-func (rc *rpcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (rc *rpcAuthPerCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	message := strconv.FormatInt(time.Now().Unix(), 10)
 	signature := hmacSign([]byte(rc.sharedSecret), message)
 

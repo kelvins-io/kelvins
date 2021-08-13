@@ -14,7 +14,7 @@ import (
 func GetRPCAuthDialOptions(conf *setting.RPCAuthSettingS) (opts []grpc.DialOption) {
 	if conf != nil {
 		if conf.Token != "" {
-			opts = append(opts, grpc.WithPerRPCCredentials(RPCCredentials(conf.Token)))
+			opts = append(opts, grpc.WithPerRPCCredentials(RPCPerCredentials(conf.Token)))
 		}
 		if !conf.TransportSecurity {
 			opts = append(opts, grpc.WithInsecure())
