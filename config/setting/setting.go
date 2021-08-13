@@ -25,6 +25,11 @@ func (s *ServerSettingS) GetIdleTimeout() time.Duration {
 	return time.Duration(s.IdleTimeout) * time.Second
 }
 
+type RPCAuthSettingS struct {
+	Token             string
+	TransportSecurity bool
+}
+
 // 日志
 type LoggerSettingS struct {
 	RootPath string

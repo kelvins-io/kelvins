@@ -31,40 +31,43 @@ var AccessLogger log.LoggerContextIface
 // BusinessLogger is a global vars for application to log business log
 var BusinessLogger log.LoggerContextIface
 
-// LoggerSetting log setting
+// LoggerSetting is maps config section "kelvins-logger"
 var LoggerSetting *setting.LoggerSettingS
 
-// ServerSetting maps config section "kelvinsServer.*" from apollo.
+// ServerSetting is maps config section "kelvins-server"
 var ServerSetting *setting.ServerSettingS
 
-// MysqlSetting maps config section "kelvinsMysql.*" from apollo.
+// ServerAuthSetting is maps config section "kelvins-auth"
+var RPCAuthSetting *setting.RPCAuthSettingS
+
+// MysqlSetting is maps config section "kelvins-mysql"
 var MysqlSetting *setting.MysqlSettingS
 
-// MysqlSetting maps config section "kelvinsRedis.*" from apollo.
+// MysqlSetting is maps config section "kelvins-redis"
 var RedisSetting *setting.RedisSettingS
 
-// QueueRedisSetting maps config section "kelvinsQueueRedis.*" from apollo.
+// QueueRedisSetting is maps config section "kelvins-queue-redis"
 var QueueRedisSetting *setting.QueueRedisSettingS
 
-// QueueServerSetting maps config section "kelvinsQueueServer.*" from apollo.
+// QueueServerSetting is maps config section "kelvins-queue-server"
 var QueueServerSetting *setting.QueueServerSettingS
 
-// QueueAliAMQPSetting maps config section "kelvinsQueueAliAMQP.*" from apollo.
+// QueueAliAMQPSetting is maps config section "kelvins-queue-amqp"
 var QueueAliAMQPSetting *setting.QueueAliAMQPSettingS
 
-// AliRocketMQSetting
+// AliRocketMQSetting is maps config section "kelvins-queue-ali-rocketmq"
 var AliRocketMQSetting *setting.AliRocketMQSettingS
 
-// QueueAMQPSetting maps config section
+// QueueAMQPSetting is maps config section "kelvins-queue-amqp"
 var QueueAMQPSetting *setting.QueueAMQPSettingS
 
-// MongoDBSetting maps config section mongodb.
+// MongoDBSetting is maps config section "kelvins-mongodb"
 var MongoDBSetting *setting.MongoDBSettingS
 
 // MongoDBClient is qmgo-client for mongodb.
 var MongoDBClient *qmgo.QmgoClient
 
-// GPoolSetting is gpool setting
+// GPoolSetting is maps config section "kelvins-gpool"
 var GPoolSetting *setting.GPoolSettingS
 
 // GPool is goroutine pool

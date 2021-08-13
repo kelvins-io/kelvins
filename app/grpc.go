@@ -14,9 +14,15 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/util"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"gitee.com/kelvins-io/kelvins/util/middleware"
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
+	"math"
 	"strconv"
+	"time"
 )
 
 // RunGRPCApplication runs grpc application.
@@ -40,6 +46,10 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 		}
 	}
 	if application.GRPCServer != nil {
+		err = stopGRPC(application)
+		if err != nil {
+			logging.Infof("gRPC stopGRPC err: %v\n", err)
+		}
 		application.GRPCServer.Stop()
 	}
 	err = appShutdown(application.Application)
@@ -195,6 +205,11 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	return err
 }
 
+const (
+	defaultWriteBufSize = 32 * 1024
+	defaultReadBufSize  = 32 * 1024
+)
+
 // setupGRPCVars ...
 func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	var err error
@@ -209,23 +224,60 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	}
 
 	var (
-		serverInterceptors []grpc.UnaryServerInterceptor
-		appInterceptor     = grpc_interceptor.AppInterceptor{App: grpcApp}
+		serverUnaryInterceptors  []grpc.UnaryServerInterceptor
+		serverStreamInterceptors []grpc.StreamServerInterceptor
+		appInterceptor           = grpc_interceptor.AppInterceptor{App: grpcApp}
+		authInterceptor          = middleware.AuthInterceptor{App: grpcApp}
 	)
-	serverInterceptors = append(serverInterceptors, appInterceptor.RecoveryGRPC)
-	serverInterceptors = append(serverInterceptors, appInterceptor.LoggingGRPC)
-	serverInterceptors = append(serverInterceptors, appInterceptor.AppGRPC)
-	//serverInterceptors = append(serverInterceptors, appInterceptor.ErrorCodeGRPC)
+	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.RecoveryGRPC)
+	serverUnaryInterceptors = append(serverUnaryInterceptors, authInterceptor.UnaryServerInterceptor(kelvins.RPCAuthSetting))
+	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.LoggingGRPC)
+	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.AppGRPC)
+	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.ErrorCodeGRPC)
 	if len(grpcApp.UnaryServerInterceptors) > 0 {
-		serverInterceptors = append(serverInterceptors, grpcApp.UnaryServerInterceptors...)
+		serverUnaryInterceptors = append(serverUnaryInterceptors, grpcApp.UnaryServerInterceptors...)
 	}
-
-	serverOptions := append(grpcApp.ServerOptions, grpc_middleware.WithUnaryServerChain(serverInterceptors...))
+	serverStreamInterceptors = append(serverStreamInterceptors, authInterceptor.StreamServerInterceptor(kelvins.RPCAuthSetting))
+	if len(grpcApp.StreamServerInterceptors) > 0 {
+		serverStreamInterceptors = append(serverStreamInterceptors, grpcApp.StreamServerInterceptors...)
+	}
+	// keep alive limit client
+	keepEnforcementPolicyOpt := grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+		MinTime:             20 * time.Second,
+		PermitWithoutStream: true,
+	})
+	// keep alive
+	keepaliveParamsOpt := grpc.KeepaliveParams(keepalive.ServerParameters{
+		MaxConnectionIdle:     time.Duration(math.MaxInt64),
+		MaxConnectionAge:      time.Duration(math.MaxInt64),
+		MaxConnectionAgeGrace: time.Duration(math.MaxInt64),
+		Time:                  2 * time.Hour,
+		Timeout:               20 * time.Second,
+	})
+	writeBufSize := grpc.WriteBufferSize(defaultWriteBufSize)
+	readBufSize := grpc.ReadBufferSize(defaultReadBufSize)
+	var serverOptions []grpc.ServerOption
+	serverOptions = append(serverOptions, grpcMiddleware.WithUnaryServerChain(serverUnaryInterceptors...))
+	serverOptions = append(serverOptions, grpcMiddleware.WithStreamServerChain(serverStreamInterceptors...))
+	serverOptions = append(serverOptions, keepaliveParamsOpt, keepEnforcementPolicyOpt)
+	serverOptions = append(serverOptions, writeBufSize, readBufSize)
+	if grpcApp.NumServerWorkers > 0 {
+		serverOptions = append(serverOptions, grpc.NumStreamWorkers(grpcApp.NumServerWorkers))
+	}
+	serverOptions = append(serverOptions, grpcApp.ServerOptions...)
 	grpcApp.GRPCServer, err = setup.NewGRPC(kelvins.ServerSetting, serverOptions)
 	if err != nil {
 		return fmt.Errorf("Setup.SetupGRPC err: %v", err)
 	}
-
+	if grpcApp.GRPCServer != nil && !grpcApp.DisableHealthCheck {
+		grpcApp.HealthServer = health.NewServer()
+		healthpb.RegisterHealthServer(grpcApp.GRPCServer, grpcApp.HealthServer)
+		if grpcApp.RegisterHealthServer != nil {
+			go func() {
+				grpcApp.RegisterHealthServer(grpcApp.HealthServer)
+			}()
+		}
+	}
 	grpcApp.GatewayServeMux = setup.NewGateway()
 	grpcApp.Mux = setup.NewGatewayServerMux(grpcApp.GatewayServeMux)
 	grpcApp.HttpServer = setup.NewHttpServer(
@@ -258,5 +310,12 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		return nil
 	}
 
+	return nil
+}
+
+func stopGRPC(grpcApp *kelvins.GRPCApplication) error {
+	if grpcApp.HealthServer != nil {
+		grpcApp.HealthServer.Shutdown()
+	}
 	return nil
 }

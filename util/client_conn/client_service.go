@@ -7,15 +7,18 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcRetry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
+	"math"
 	"strings"
+	"time"
 )
 
 var (
-	opts []grpc.DialOption
+	optsDefault []grpc.DialOption
 )
 
 type ConnClient struct {
@@ -34,12 +37,13 @@ func NewConnClient(serviceName string) (*ConnClient, error) {
 }
 
 // return a valid connection as much as possible
-func (c *ConnClient) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
+func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	target := fmt.Sprintf("%s:///%s", kelvinsScheme, c.ServerName)
+
 	return grpc.DialContext(
 		ctx,
 		target,
-		opts...,
+		append(optsDefault, opts...)...,
 	)
 }
 
@@ -58,24 +62,45 @@ func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err 
 	return
 }
 
+const (
+	grpcServiceConfig = `{
+	"loadBalancingPolicy": "round_robin",
+	"healthCheckConfig": {
+		"serviceName": ""
+	}
+}`
+)
+
+const (
+	defaultWriteBufSize = 64 * 1024
+	defaultReadBufSize  = 64 * 1024
+)
+
 func init() {
-	opts = append(opts, grpc.WithInsecure())
-	opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`))
-	opts = append(opts, grpc.WithUnaryInterceptor(
-		grpc_middleware.ChainUnaryClient(
+	optsDefault = append(optsDefault, grpc.WithInsecure())
+	optsDefault = append(optsDefault, grpc.WithDefaultServiceConfig(grpcServiceConfig))
+	optsDefault = append(optsDefault, grpc.WithUnaryInterceptor(
+		grpcMiddleware.ChainUnaryClient(
 			grpc_interceptor.UnaryCtxHandleGRPC(),
-			grpc_retry.UnaryClientInterceptor(
-				grpc_retry.WithMax(2),
-				grpc_retry.WithCodes(
+			grpcRetry.UnaryClientInterceptor(
+				grpcRetry.WithMax(2),
+				grpcRetry.WithCodes(
 					codes.Internal,
 					codes.DeadlineExceeded,
 				),
 			),
 		),
 	))
-	opts = append(opts, grpc.WithStreamInterceptor(
-		grpc_middleware.ChainStreamClient(
+	optsDefault = append(optsDefault, grpc.WithStreamInterceptor(
+		grpcMiddleware.ChainStreamClient(
 			grpc_interceptor.StreamCtxHandleGRPC(),
 		),
 	))
+	optsDefault = append(optsDefault, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:                time.Duration(math.MaxInt64),
+		Timeout:             20 * time.Second,
+		PermitWithoutStream: true,
+	}))
+	optsDefault = append(optsDefault, grpc.WithReadBufferSize(defaultReadBufSize))
+	optsDefault = append(optsDefault, grpc.WithWriteBufferSize(defaultWriteBufSize))
 }

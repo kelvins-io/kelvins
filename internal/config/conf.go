@@ -33,12 +33,14 @@ const (
 	SectionQueueServer = "kelvins-queue-server"
 	// SectionGPool is goroutine pool
 	SectionGPool = "kelvins-gpool"
+	// SectionAuth is rpc auth
+	SectionAuth = "kelvins-auth"
 )
 
 // cfg reads file app.ini.
 var (
 	cfg            *ini.File
-	flagConfigPath = flag.String("conf_file", "", "Set Conf Path.")
+	flagConfigPath = flag.String("conf_file", "", "set config file path")
 )
 
 // LoadDefaultConfig loads config form cfg.
@@ -61,6 +63,11 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 		if sectionName == SectionServer {
 			kelvins.ServerSetting = new(setting.ServerSettingS)
 			MapConfig(sectionName, kelvins.ServerSetting)
+			continue
+		}
+		if sectionName == SectionAuth {
+			kelvins.RPCAuthSetting = new(setting.RPCAuthSettingS)
+			MapConfig(sectionName, kelvins.RPCAuthSetting)
 			continue
 		}
 		if sectionName == SectionLogger {

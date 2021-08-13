@@ -77,10 +77,10 @@ func (k *KProcess) Exit() <-chan struct{} {
 
 func (k *KProcess) signal(upgradeFunc, stopFunc func() error) {
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGUSR1, syscall.SIGUSR2, syscall.SIGTERM)
+	signal.Notify(sig, syscall.SIGUSR1, syscall.SIGUSR2, syscall.SIGTERM, os.Interrupt, os.Kill)
 	for s := range sig {
 		switch s {
-		case syscall.SIGTERM:
+		case syscall.SIGTERM, os.Interrupt, os.Kill:
 			if stopFunc != nil {
 				err := stopFunc()
 				if err != nil {

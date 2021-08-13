@@ -11,7 +11,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
-	queue_log "github.com/RichardKnop/machinery/v1/log"
+	queueLog "github.com/RichardKnop/machinery/v1/log"
 	"time"
 )
 
@@ -147,7 +147,7 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	if err != nil {
 		return fmt.Errorf("kelvinslog.GetBusinessLogger: %v", err)
 	}
-	queue_log.Set(&queueLogger{
+	queueLog.Set(&queueLogger{
 		logger: queueApp.QueueLogger,
 	})
 
