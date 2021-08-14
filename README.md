@@ -44,7 +44,8 @@ kelvins-server
 [kelvins-server]
 IsRecordCallResponse = true
 Network = "tcp"
-PIDFile = "./kelvins-io.pid"
+Environment = "dev"
+PIDFile = "./kelvins-app.pid"
 ReadTimeout = 30 #秒
 WriteTimeout = 30 #秒
 IdleTimeout = 30 #秒
@@ -175,7 +176,8 @@ micro-mall-api/etc/app.ini#EmailConfig就属于自定义配置项
 说明：flag参数优先级高于配置文件中同名配置参数，flag参数均可不指定，默认从进程运行目录/etc/app.ini加载，日志文件路径默认在进程运行目录/logs   
 -logger_level 日志级别   
 -logger_path  日志文件路径   
--conf_file  配置文件（ini文件）路径   
+-conf_file  配置文件（ini文件）路径  
+-env 运行环境变量：dev test prod    
 -s start 启动进程   
 -s restart 重启当前进程   
 -s stop 停止当前进程   
