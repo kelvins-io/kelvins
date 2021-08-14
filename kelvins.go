@@ -27,6 +27,7 @@ type Application struct {
 	Type           int32
 	LoggerRootPath string
 	LoggerLevel    string
+	Environment    string
 	LoadConfig     func() error
 	SetupVars      func() error
 	StopFunc       func() error

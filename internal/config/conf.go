@@ -73,8 +73,6 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 		if sectionName == SectionLogger {
 			kelvins.LoggerSetting = new(setting.LoggerSettingS)
 			MapConfig(sectionName, kelvins.LoggerSetting)
-			application.LoggerRootPath = kelvins.LoggerSetting.RootPath
-			application.LoggerLevel = kelvins.LoggerSetting.Level
 			continue
 		}
 		if sectionName == SectionMysql {

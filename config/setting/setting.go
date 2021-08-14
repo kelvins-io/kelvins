@@ -8,6 +8,7 @@ type ServerSettingS struct {
 	EndPoint             string
 	IsRecordCallResponse bool
 	PIDFile              string
+	Environment          string
 	ReadTimeout          int
 	WriteTimeout         int
 	IdleTimeout          int
@@ -49,6 +50,8 @@ type MysqlSettingS struct {
 	ConnMaxLifeSecond int
 	MultiStatements   bool
 	ParseTime         bool
+	LoggerLevel       string
+	Environment       string
 }
 
 // RedisSettingS defines for connecting redis.
