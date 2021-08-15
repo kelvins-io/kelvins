@@ -176,7 +176,7 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 	xormlogger := &xormLogger{
 		logger: logger,
 	}
-	engine.SetLogLevel(xormLogLevel[mysqlSetting.Environment])
+	engine.SetLogLevel(xormLogLevel[mysqlSetting.LoggerLevel])
 	var writer io.Writer
 	writer = xormlogger
 	if mysqlSetting.Environment == config.DefaultEnvironmentDev {
