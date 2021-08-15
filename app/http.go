@@ -26,7 +26,7 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 
 	err := runHTTP(application)
 	if err != nil {
-		logging.Fatalf("App.RunHTTP err: %v\n", err)
+		logging.Infof("App.RunHTTP err: %v\n", err)
 	}
 
 	appPrepareForceExit()

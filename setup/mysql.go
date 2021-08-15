@@ -65,7 +65,7 @@ func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	logger, _ := log.GetAccessLogger("gorm")
+	logger, _ := log.GetCustomLogger("db-log","gorm")
 	gormLogger := &gormLogger{
 		logger: logger,
 	}
@@ -172,7 +172,7 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 		return nil, err
 	}
 
-	logger, _ := log.GetAccessLogger("xorm")
+	logger, _ := log.GetCustomLogger("db-log","xorm")
 	xormlogger := &xormLogger{
 		logger: logger,
 	}
