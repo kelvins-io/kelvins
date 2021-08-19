@@ -8,7 +8,7 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.685 // indirect
 	github.com/aliyunmq/mq-http-go-sdk v0.0.0-20190911115909-92078b373925 // indirect
-	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833 // indirect
+	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
 	github.com/bojand/ghz v0.100.0
 	github.com/cloudflare/tableflip v1.2.2
 	github.com/coreos/etcd v3.3.22+incompatible

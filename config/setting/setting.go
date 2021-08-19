@@ -31,6 +31,28 @@ type RPCAuthSettingS struct {
 	TransportSecurity bool
 }
 
+type RPCServerKeepaliveParamsS struct {
+	PingClientIntervalTime int64
+	MaxConnectionIdle      int64
+}
+
+type RPCServerKeepaliveEnforcementPolicyS struct {
+	ClientMinIntervalTime int64
+	PermitWithoutStream   bool
+}
+
+type RPCClientKeepaliveParamsS struct {
+	PingServerIntervalTime int64
+	PermitWithoutStream    bool
+}
+
+type RPCTransportBufferS struct {
+	ServerReadBufSizeKB  int
+	ServerWriteBufSizeKB int
+	ClientReadBufSizeKB  int
+	ClientWriteBufSizeKB int
+}
+
 // 日志
 type LoggerSettingS struct {
 	RootPath string

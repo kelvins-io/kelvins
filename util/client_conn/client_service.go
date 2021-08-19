@@ -3,6 +3,7 @@ package client_conn
 import (
 	"context"
 	"fmt"
+	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
@@ -11,14 +12,15 @@ import (
 	grpcRetry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/keepalive"
-	"math"
 	"strings"
 	"time"
 )
 
 var (
 	optsDefault []grpc.DialOption
+	optsStartup []grpc.DialOption
 )
 
 type ConnClient struct {
@@ -40,11 +42,26 @@ func NewConnClient(serviceName string) (*ConnClient, error) {
 func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	target := fmt.Sprintf("%s:///%s", kelvinsScheme, c.ServerName)
 
-	return grpc.DialContext(
+	conn, err := getRPCConn(c.ServerName)
+	if err == nil && justConnEffective(conn) {
+		return conn, nil
+	}
+	// priority order: optsStartup > opts > optsDefault
+	optsUse := append(optsDefault, opts...)
+	conn, err = grpc.DialContext(
 		ctx,
 		target,
-		append(optsDefault, opts...)...,
+		append(optsUse, optsStartup...)...,
 	)
+
+	if err == nil && justConnEffective(conn) {
+		_ee := storageRPCConn(c.ServerName, conn)
+		if _ee != nil {
+			kelvins.FrameworkLogger.Errorf(ctx, "storageRPCConn(%s) err %v", c.ServerName, _ee)
+		}
+	}
+
+	return conn, err
 }
 
 // the returned endpoint list may have invalid nodes
@@ -54,12 +71,26 @@ func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err 
 	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
 	serviceConfigs, err := serviceConfigClient.GetConfigs()
 	if err != nil {
+		kelvins.FrameworkLogger.Errorf(ctx, "serviceConfigs get err %v", err)
 		return
 	}
 	for _, value := range serviceConfigs {
 		endpoints = append(endpoints, value.ServicePort)
 	}
 	return
+}
+
+func justConnEffective(conn *grpc.ClientConn) bool {
+	if conn == nil {
+		return false
+	}
+	state := conn.GetState()
+	if state == connectivity.Idle || state == connectivity.Ready {
+		return true
+	} else {
+		conn.Close()
+		return false
+	}
 }
 
 const (
@@ -72,8 +103,8 @@ const (
 )
 
 const (
-	defaultWriteBufSize = 64 * 1024
-	defaultReadBufSize  = 64 * 1024
+	defaultWriteBufSize = 32 * 1024
+	defaultReadBufSize  = 32 * 1024
 )
 
 func init() {
@@ -97,10 +128,15 @@ func init() {
 		),
 	))
 	optsDefault = append(optsDefault, grpc.WithKeepaliveParams(keepalive.ClientParameters{
-		Time:                time.Duration(math.MaxInt64),
-		Timeout:             20 * time.Second,
-		PermitWithoutStream: true,
+		Time:                6 * time.Minute,  // 客户端在这段时间之后如果没有活动的RPC，客户端将给服务器发送PING
+		Timeout:             20 * time.Second, // 连接服务端后等待一段时间后没有收到响应则关闭连接
+		PermitWithoutStream: true,             // 允许客户端在没有活动RPC的情况下向服务端发送PING
 	}))
 	optsDefault = append(optsDefault, grpc.WithReadBufferSize(defaultReadBufSize))
 	optsDefault = append(optsDefault, grpc.WithWriteBufferSize(defaultWriteBufSize))
+}
+
+// only executed at boot load, so no locks are used
+func RPCClientDialOptionAppend(opts []grpc.DialOption) {
+	optsStartup = append(optsStartup, opts...)
 }

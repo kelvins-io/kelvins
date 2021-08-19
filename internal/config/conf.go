@@ -35,6 +35,14 @@ const (
 	SectionGPool = "kelvins-gpool"
 	// SectionAuth is rpc auth
 	SectionAuth = "kelvins-auth"
+	// SectionRPCServerKeepaliveParams is server rpc keep alive params
+	SectionRPCServerKeepaliveParams = "kelvins-rpc-server-kp"
+	// SectionRPCServerKeepaliveEnforcementPolicy is server rpc keep alive enf policy
+	SectionRPCServerKeepaliveEnforcementPolicy = "kelvins-rpc-server-kep"
+	// SectionRPCClientKeepaliveParams is client rpc keep alive params
+	SectionRPCClientKeepaliveParams = "kelvins-rpc-client-kp"
+	// SectionRPCTransportBuffer is rpc transport buffer
+	SectionRPCTransportBuffer = "kelvins-rpc-transport-buffer"
 )
 
 // cfg reads file app.ini.
@@ -68,6 +76,26 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 		if sectionName == SectionAuth {
 			kelvins.RPCAuthSetting = new(setting.RPCAuthSettingS)
 			MapConfig(sectionName, kelvins.RPCAuthSetting)
+			continue
+		}
+		if sectionName == SectionRPCServerKeepaliveParams {
+			kelvins.RPCServerKeepaliveParamsSetting = new(setting.RPCServerKeepaliveParamsS)
+			MapConfig(sectionName, kelvins.RPCServerKeepaliveParamsSetting)
+			continue
+		}
+		if sectionName == SectionRPCServerKeepaliveEnforcementPolicy {
+			kelvins.RPCServerKeepaliveEnforcementPolicySetting = new(setting.RPCServerKeepaliveEnforcementPolicyS)
+			MapConfig(sectionName, kelvins.RPCServerKeepaliveEnforcementPolicySetting)
+			continue
+		}
+		if sectionName == SectionRPCClientKeepaliveParams {
+			kelvins.RPCClientKeepaliveParamsSetting = new(setting.RPCClientKeepaliveParamsS)
+			MapConfig(sectionName, kelvins.RPCClientKeepaliveParamsSetting)
+			continue
+		}
+		if sectionName == SectionRPCTransportBuffer {
+			kelvins.RPCTransportBufferSetting = new(setting.RPCTransportBufferS)
+			MapConfig(sectionName, kelvins.RPCTransportBufferSetting)
 			continue
 		}
 		if sectionName == SectionLogger {

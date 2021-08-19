@@ -40,6 +40,18 @@ var ServerSetting *setting.ServerSettingS
 // ServerAuthSetting is maps config section "kelvins-auth"
 var RPCAuthSetting *setting.RPCAuthSettingS
 
+// RPCServerKeepaliveParamsSetting is maps config section "kelvins-rpc-server-kp"
+var RPCServerKeepaliveParamsSetting *setting.RPCServerKeepaliveParamsS
+
+// RPCServerKeepaliveEnforcementPolicySetting is maps config section "kelvins-rpc-server-kep"
+var RPCServerKeepaliveEnforcementPolicySetting *setting.RPCServerKeepaliveEnforcementPolicyS
+
+// RPCClientKeepaliveParamsSetting is maps config section "kelvins-rpc-client-kp"
+var RPCClientKeepaliveParamsSetting *setting.RPCClientKeepaliveParamsS
+
+// RPCTransportBufferSetting is maps config section "kelvins-rpc-transport-buffer"
+var RPCTransportBufferSetting *setting.RPCTransportBufferS
+
 // MysqlSetting is maps config section "kelvins-mysql"
 var MysqlSetting *setting.MysqlSettingS
 

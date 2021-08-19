@@ -72,6 +72,8 @@ func (r *kelvinsResolver) watcher() {
 	}
 }
 
+var emptyCtx = context.Background()
+
 func (r *kelvinsResolver) resolverServiceConfig() {
 	serviceName := r.target.Endpoint
 	etcdServerUrls := config.GetEtcdV3ServerURLs()
@@ -88,6 +90,7 @@ func (r *kelvinsResolver) resolverServiceConfig() {
 	}
 	if err != nil {
 		r.cc.ReportError(fmt.Errorf("serviceConfigClient GetConfigs err: %v, key suffix: %v", err, serviceName))
+		kelvins.FrameworkLogger.Errorf(emptyCtx, "serviceConfigClient GetConfigs err: %v, key suffix: %v", err, serviceName)
 		return
 	}
 
