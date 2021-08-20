@@ -27,8 +27,13 @@ func getRPCConn(serviceName string) (conn *grpc.ClientConn, err error) {
 	key := genInternalCacheKey(serviceName)
 	exist := internalCache.Has(key)
 	if exist {
-		value, err := internalCache.Get(key)
+		var value interface{}
+		value, err = internalCache.Get(key)
 		if err != nil {
+			return
+		}
+		if value == nil {
+			err = internalNotFound
 			return
 		}
 		connCache, ok := value.(*grpc.ClientConn)
