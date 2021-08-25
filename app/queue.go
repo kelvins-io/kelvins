@@ -11,7 +11,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
-	queue_log "github.com/RichardKnop/machinery/v1/log"
+	queueLog "github.com/RichardKnop/machinery/v1/log"
 	"time"
 )
 
@@ -147,7 +147,7 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	if err != nil {
 		return fmt.Errorf("kelvinslog.GetBusinessLogger: %v", err)
 	}
-	queue_log.Set(&queueLogger{
+	queueLog.Set(&queueLogger{
 		logger: queueApp.QueueLogger,
 	})
 
@@ -202,6 +202,8 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	return fmt.Errorf("lack of kelvinsQueue* section config")
 }
 
+var queueLoggerCtx = context.Background()
+
 // queueLogger implements machinery log interface.
 type queueLogger struct {
 	logger *log.LoggerContext
@@ -209,45 +211,45 @@ type queueLogger struct {
 
 // Print uses logger to log info msg.
 func (q *queueLogger) Print(a ...interface{}) {
-	q.logger.Info(context.Background(), fmt.Sprint(a...))
+	q.logger.Info(queueLoggerCtx, fmt.Sprint(a...))
 }
 
 // Printf uses logger to log info msg.
 func (q *queueLogger) Printf(format string, a ...interface{}) {
-	q.logger.Infof(context.Background(), format, a...)
+	q.logger.Infof(queueLoggerCtx, format, a...)
 }
 
 // Println uses logger to log info msg.
 func (q *queueLogger) Println(a ...interface{}) {
-	q.logger.Info(context.Background(), fmt.Sprint(a...))
+	q.logger.Info(queueLoggerCtx, fmt.Sprint(a...))
 }
 
 // Fatal uses kelvins.ErrLogger to log err msg.
 func (q *queueLogger) Fatal(a ...interface{}) {
-	kelvins.ErrLogger.Error(context.Background(), fmt.Sprint(a...))
+	q.logger.Error(queueLoggerCtx, fmt.Sprint(a...))
 }
 
 // Fatalf uses kelvins.ErrLogger to log err msg.
 func (q *queueLogger) Fatalf(format string, a ...interface{}) {
-	kelvins.ErrLogger.Errorf(context.Background(), format, a...)
+	q.logger.Errorf(queueLoggerCtx, format, a...)
 }
 
 // Fatalln uses kelvins.ErrLogger to log err msg.
 func (q *queueLogger) Fatalln(a ...interface{}) {
-	kelvins.ErrLogger.Error(context.Background(), fmt.Sprint(a...))
+	q.logger.Error(queueLoggerCtx, fmt.Sprint(a...))
 }
 
 // Panic uses kelvins.ErrLogger to log err msg.
 func (q *queueLogger) Panic(a ...interface{}) {
-	kelvins.ErrLogger.Error(context.Background(), fmt.Sprint(a...))
+	q.logger.Error(queueLoggerCtx, fmt.Sprint(a...))
 }
 
 // Panicf uses kelvins.ErrLogger to log err msg.
 func (q *queueLogger) Panicf(format string, a ...interface{}) {
-	kelvins.ErrLogger.Errorf(context.Background(), format, a)
+	q.logger.Errorf(queueLoggerCtx, format, a)
 }
 
 // Panicln uses kelvins.ErrLogger to log err msg.
 func (q *queueLogger) Panicln(a ...interface{}) {
-	kelvins.ErrLogger.Error(context.Background(), fmt.Sprint(a...))
+	q.logger.Error(queueLoggerCtx, fmt.Sprint(a...))
 }

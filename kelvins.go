@@ -10,6 +10,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/robfig/cron/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
 	"net/http"
 )
 
@@ -26,6 +27,7 @@ type Application struct {
 	Type           int32
 	LoggerRootPath string
 	LoggerLevel    string
+	Environment    string
 	LoadConfig     func() error
 	SetupVars      func() error
 	StopFunc       func() error
@@ -34,21 +36,35 @@ type Application struct {
 // GRPCApplication ...
 type GRPCApplication struct {
 	*Application
-	Port                    int64
-	GRPCServer              *grpc.Server
-	GatewayServeMux         *runtime.ServeMux
-	Mux                     *http.ServeMux
-	HttpServer              *http.Server
-	TlsConfig               *tls.Config
-	GKelvinsLogger          *log.LoggerContext
-	GSysErrLogger           *log.LoggerContext
-	UnaryServerInterceptors []grpc.UnaryServerInterceptor
-	ServerOptions           []grpc.ServerOption
-	RegisterGRPCServer      func(*grpc.Server) error
-	RegisterGateway         func(context.Context, *runtime.ServeMux, string, []grpc.DialOption) error
-	RegisterHttpRoute       func(*http.ServeMux) error
-	EventServer             *event.EventServer
-	RegisterEventProducer   func(event.ProducerIface) error
+	Port                     int64
+	GRPCServer               *grpc.Server
+	HealthServer             *GRPCHealthServer
+	DisableHealthCheck       bool
+	RegisterHealthServer     func(*GRPCHealthServer) // execute in the coroutine
+	NumServerWorkers         uint32
+	GatewayServeMux          *runtime.ServeMux
+	Mux                      *http.ServeMux
+	HttpServer               *http.Server
+	TlsConfig                *tls.Config
+	GKelvinsLogger           *log.LoggerContext
+	GSysErrLogger            *log.LoggerContext
+	UnaryServerInterceptors  []grpc.UnaryServerInterceptor
+	StreamServerInterceptors []grpc.StreamServerInterceptor
+	ServerOptions            []grpc.ServerOption
+	RegisterGRPCServer       func(*grpc.Server) error
+	RegisterGateway          func(context.Context, *runtime.ServeMux, string, []grpc.DialOption) error
+	RegisterHttpRoute        func(*http.ServeMux) error
+	EventServer              *event.EventServer
+	RegisterEventProducer    func(event.ProducerIface) error
+}
+
+type GRPCHealthServer struct {
+	*health.Server
+}
+
+// let go of health check
+func (a *GRPCHealthServer) AuthFuncOverride(ctx context.Context, fullMethodName string) (context.Context, error) {
+	return ctx, nil
 }
 
 // CronJob warps job define.
@@ -87,7 +103,7 @@ type HTTPApplication struct {
 	Mux                   *http.ServeMux
 	HttpServer            *http.Server
 	RegisterHttpRoute     func(*http.ServeMux) error
-	RegisterHttpGinEngine func() (*gin.Engine,error) // can over RegisterHttpRoute
+	RegisterHttpGinEngine func() (*gin.Engine, error) // can over RegisterHttpRoute
 	EventServer           *event.EventServer
 	RegisterEventProducer func(event.ProducerIface) error
 }

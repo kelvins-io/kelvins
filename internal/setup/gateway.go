@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"gitee.com/kelvins-io/common/env"
 	"gitee.com/kelvins-io/common/errcode"
 	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/common/proto/common"
@@ -34,17 +33,17 @@ func customHTTPError(ctx context.Context, _ *runtime.ServeMux, marshaler runtime
 
 	grpcErrReturn := GRPCErrReturn{}
 	details := s.Details()
-	isDeatil := false
+	isDetail := false
 	for _, detail := range details {
 		if v, ok := detail.(*common.Error); ok {
 			grpcErrReturn.ErrCode = v.Code
 			grpcErrReturn.ErrMsg = v.Message
-			isDeatil = true
+			isDetail = true
 			break
 		}
 	}
 
-	if isDeatil == false && s.Message() != "" {
+	if isDetail == false && s.Message() != "" {
 		errCode := errcode.FAIL
 		if s.Code() == codes.DeadlineExceeded {
 			errCode = errcode.DEADLINE_EXCEEDED
@@ -52,9 +51,7 @@ func customHTTPError(ctx context.Context, _ *runtime.ServeMux, marshaler runtime
 
 		grpcErrReturn.ErrCode = int32(errCode)
 		grpcErrReturn.ErrMsg = errcode.GetErrMsg(errCode)
-		if !env.IsProdMode() {
-			grpcErrReturn.ErrDetail = s.Message()
-		}
+		grpcErrReturn.ErrDetail = s.Message()
 
 		kelvins.ErrLogger.Errorf(ctx, "grpc-gateway err: %s", s.Message())
 	}

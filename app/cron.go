@@ -188,20 +188,22 @@ type cronJob struct {
 	logger *log.LoggerContext
 }
 
+var cronJobCtx = context.Background()
+
 // warpJob warps job with log and panic recover.
 func (c *cronJob) warpJob(job func()) func() {
 	return func() {
 		defer func() {
 			if r := recover(); r != nil {
-				kelvins.ErrLogger.Errorf(context.Background(), "Name: %s Recover err: %v", c.name, r)
+				c.logger.Errorf(cronJobCtx, "Name: %s Recover err: %v", c.name, r)
 			}
 		}()
 		UUID := uuid.New()
 		startTime := time.Now()
-		c.logger.Infof(context.Background(), "Name: %s Uuid: %s StartTime: %s", c.name, UUID, startTime.Format("2006-01-02 15:04:05.000"))
+		c.logger.Infof(cronJobCtx, "Name: %s Uuid: %s StartTime: %s", c.name, UUID, startTime.Format("2006-01-02 15:04:05.000"))
 		job()
 		endTime := time.Now()
 		duration := endTime.Sub(startTime)
-		c.logger.Infof(context.Background(), "Name: %s Uuid: %s EndTime: %s Duration: %fs", c.name, UUID, endTime.Format("2006-01-02 15:04:05.000"), duration.Seconds())
+		c.logger.Infof(cronJobCtx, "Name: %s Uuid: %s EndTime: %s Duration: %fs", c.name, UUID, endTime.Format("2006-01-02 15:04:05.000"), duration.Seconds())
 	}
 }

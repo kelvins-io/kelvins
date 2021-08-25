@@ -33,12 +33,22 @@ const (
 	SectionQueueServer = "kelvins-queue-server"
 	// SectionGPool is goroutine pool
 	SectionGPool = "kelvins-gpool"
+	// SectionAuth is rpc auth
+	SectionAuth = "kelvins-auth"
+	// SectionRPCServerKeepaliveParams is server rpc keep alive params
+	SectionRPCServerKeepaliveParams = "kelvins-rpc-server-kp"
+	// SectionRPCServerKeepaliveEnforcementPolicy is server rpc keep alive enf policy
+	SectionRPCServerKeepaliveEnforcementPolicy = "kelvins-rpc-server-kep"
+	// SectionRPCClientKeepaliveParams is client rpc keep alive params
+	SectionRPCClientKeepaliveParams = "kelvins-rpc-client-kp"
+	// SectionRPCTransportBuffer is rpc transport buffer
+	SectionRPCTransportBuffer = "kelvins-rpc-transport-buffer"
 )
 
 // cfg reads file app.ini.
 var (
 	cfg            *ini.File
-	flagConfigPath = flag.String("conf_file", "", "Set Conf Path.")
+	flagConfigPath = flag.String("conf_file", "", "set config file path")
 )
 
 // LoadDefaultConfig loads config form cfg.
@@ -63,11 +73,34 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 			MapConfig(sectionName, kelvins.ServerSetting)
 			continue
 		}
+		if sectionName == SectionAuth {
+			kelvins.RPCAuthSetting = new(setting.RPCAuthSettingS)
+			MapConfig(sectionName, kelvins.RPCAuthSetting)
+			continue
+		}
+		if sectionName == SectionRPCServerKeepaliveParams {
+			kelvins.RPCServerKeepaliveParamsSetting = new(setting.RPCServerKeepaliveParamsS)
+			MapConfig(sectionName, kelvins.RPCServerKeepaliveParamsSetting)
+			continue
+		}
+		if sectionName == SectionRPCServerKeepaliveEnforcementPolicy {
+			kelvins.RPCServerKeepaliveEnforcementPolicySetting = new(setting.RPCServerKeepaliveEnforcementPolicyS)
+			MapConfig(sectionName, kelvins.RPCServerKeepaliveEnforcementPolicySetting)
+			continue
+		}
+		if sectionName == SectionRPCClientKeepaliveParams {
+			kelvins.RPCClientKeepaliveParamsSetting = new(setting.RPCClientKeepaliveParamsS)
+			MapConfig(sectionName, kelvins.RPCClientKeepaliveParamsSetting)
+			continue
+		}
+		if sectionName == SectionRPCTransportBuffer {
+			kelvins.RPCTransportBufferSetting = new(setting.RPCTransportBufferS)
+			MapConfig(sectionName, kelvins.RPCTransportBufferSetting)
+			continue
+		}
 		if sectionName == SectionLogger {
 			kelvins.LoggerSetting = new(setting.LoggerSettingS)
 			MapConfig(sectionName, kelvins.LoggerSetting)
-			application.LoggerRootPath = kelvins.LoggerSetting.RootPath
-			application.LoggerLevel = kelvins.LoggerSetting.Level
 			continue
 		}
 		if sectionName == SectionMysql {

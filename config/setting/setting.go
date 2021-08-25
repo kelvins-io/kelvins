@@ -8,6 +8,7 @@ type ServerSettingS struct {
 	EndPoint             string
 	IsRecordCallResponse bool
 	PIDFile              string
+	Environment          string
 	ReadTimeout          int
 	WriteTimeout         int
 	IdleTimeout          int
@@ -23,6 +24,33 @@ func (s *ServerSettingS) GetWriteTimeout() time.Duration {
 
 func (s *ServerSettingS) GetIdleTimeout() time.Duration {
 	return time.Duration(s.IdleTimeout) * time.Second
+}
+
+type RPCAuthSettingS struct {
+	Token             string
+	TransportSecurity bool
+}
+
+type RPCServerKeepaliveParamsS struct {
+	PingClientIntervalTime int64
+	MaxConnectionIdle      int64
+}
+
+type RPCServerKeepaliveEnforcementPolicyS struct {
+	ClientMinIntervalTime int64
+	PermitWithoutStream   bool
+}
+
+type RPCClientKeepaliveParamsS struct {
+	PingServerIntervalTime int64
+	PermitWithoutStream    bool
+}
+
+type RPCTransportBufferS struct {
+	ServerReadBufSizeKB  int
+	ServerWriteBufSizeKB int
+	ClientReadBufSizeKB  int
+	ClientWriteBufSizeKB int
 }
 
 // 日志
@@ -44,6 +72,8 @@ type MysqlSettingS struct {
 	ConnMaxLifeSecond int
 	MultiStatements   bool
 	ParseTime         bool
+	LoggerLevel       string
+	Environment       string
 }
 
 // RedisSettingS defines for connecting redis.

@@ -2,11 +2,17 @@ package setup
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
-	"gitee.com/kelvins-io/common/env"
+	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins/config/setting"
+	"gitee.com/kelvins-io/kelvins/internal/config"
+	"io"
 	"net/url"
+	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -58,9 +64,16 @@ func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if env.IsDevMode() {
-		db.LogMode(true)
+
+	logger, _ := log.GetCustomLogger("db-log","gorm")
+	gormLogger := &gormLogger{
+		logger: logger,
 	}
+	if mysqlSetting.Environment == config.DefaultEnvironmentDev {
+		db.LogMode(true)
+		gormLogger.out = os.Stdout
+	}
+	db.SetLogger(gormLogger)
 
 	db.DB().SetConnMaxLifetime(3600 * time.Second)
 	if mysqlSetting.ConnMaxLifeSecond > 0 {
@@ -78,6 +91,41 @@ func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 	}
 
 	return db, nil
+}
+
+type gormLogger struct {
+	logger log.LoggerContextIface
+	out    io.Writer
+}
+
+var logBufPool = sync.Pool{
+	New: func() interface{} {
+		b := make([]byte, 32*1024)
+		return &b
+	},
+}
+
+var gormLoggerCtx = context.Background()
+
+func (l *gormLogger) Print(vv ...interface{}) {
+	l.logger.Info(gormLoggerCtx, vv)
+	if l.out != nil {
+		buf := logBufPool.Get().(*[]byte)
+		defer logBufPool.Put(buf)
+		w := bytes.NewBuffer(*buf)
+		for _, v := range vv {
+			vLog, _ := json.Marshal(v)
+			w.Write(vLog)
+		}
+		_, _ = l.out.Write(w.Bytes())
+	}
+}
+
+var xormLogLevel = map[string]xormLog.LogLevel{
+	"debug": xormLog.LOG_DEBUG,
+	"info":  xormLog.LOG_INFO,
+	"warn":  xormLog.LOG_WARNING,
+	"error": xormLog.LOG_ERR,
 }
 
 // NewMySQL returns *xorm.DB instance.
@@ -123,8 +171,19 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 	if err != nil {
 		return nil, err
 	}
-	if env.IsDevMode() {
-		engine.SetLogLevel(xormLog.LOG_DEBUG)
+
+	logger, _ := log.GetCustomLogger("db-log","xorm")
+	xormlogger := &xormLogger{
+		logger: logger,
+	}
+	engine.SetLogLevel(xormLogLevel[mysqlSetting.LoggerLevel])
+	var writer io.Writer
+	writer = xormlogger
+	if mysqlSetting.Environment == config.DefaultEnvironmentDev {
+		writer = io.MultiWriter(writer, os.Stdout)
+	}
+	engine.SetLogger(xormLog.NewSimpleLogger(writer))
+	if mysqlSetting.Environment == config.DefaultEnvironmentDev {
 		engine.ShowSQL(true)
 	}
 
@@ -144,6 +203,17 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 	}
 
 	return engine, nil
+}
+
+var xormLoggerCtx = context.Background()
+
+type xormLogger struct {
+	logger log.LoggerContextIface
+}
+
+func (l *xormLogger) Write(p []byte) (n int, err error) {
+	l.logger.Info(xormLoggerCtx, string(p))
+	return 0, nil
 }
 
 // SetGORMCreateCallback is set create callback

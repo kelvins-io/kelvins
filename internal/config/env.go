@@ -27,3 +27,10 @@ func GetEtcdV3ServerURLs() string {
 
 	return GetEtcdV3ServerURL()
 }
+
+const (
+	DefaultEnvironmentDev     = "dev"
+	DefaultEnvironmentTest    = "test"
+	DefaultEnvironmentRelease = "release"
+	DefaultEnvironmentProd    = "prod"
+)

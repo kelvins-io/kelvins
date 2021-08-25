@@ -9,7 +9,7 @@ import (
 // NewGRPC ...
 func NewGRPC(serverSetting *setting.ServerSettingS, opts []grpc.ServerOption) (*grpc.Server, error) {
 	if serverSetting == nil {
-		return nil, fmt.Errorf("ServerSetting is nil")
+		return nil, fmt.Errorf("serverSetting is nil")
 	}
 
 	return grpc.NewServer(opts...), nil

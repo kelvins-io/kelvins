@@ -53,12 +53,7 @@ func NewMongoDBClient(mongodbSetting *setting.MongoDBSettingS) (*qmgo.QmgoClient
 	}
 	client, err := qmgo.Open(ctx, mgoCfg)
 	if err != nil {
-		log.Printf("mongodb connection err: %v", err)
-		return nil, err
-	}
-	err = client.Ping(30) // 30s
-	if err != nil {
-		log.Printf("mongodb ping timeout err: %v", err)
+		log.Printf("mongodb open err: %v\n", err)
 		return nil, err
 	}
 

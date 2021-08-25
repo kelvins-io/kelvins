@@ -20,34 +20,56 @@ import (
 
 const (
 	DefaultLoggerRootPath = "./logs"
-	DefaultLoggerLevel    = "debug"
+	DefaultLoggerLevel    = "info"
 )
 
 var (
-	flagLoggerLevel = flag.String("logger_level", "", "set logger level.")
-	flagLoggerPath  = flag.String("logger_path", "", "set logger root path.")
+	flagLoggerLevel = flag.String("logger_level", "", "set logger level eg: debug,warn,error,info")
+	flagLoggerPath  = flag.String("logger_path", "", "set logger root path eg: /tmp/kelvins-app")
+	flagEnv         = flag.String("env", "", "set exec environment eg: dev,test,prod")
 )
 
 func initApplication(application *kelvins.Application) error {
 	flag.Parse()
 	kelvins.ServerName = application.Name
 
-	rootPath := DefaultLoggerRootPath
+	loggerPath := DefaultLoggerRootPath
+	if kelvins.LoggerSetting != nil && kelvins.LoggerSetting.RootPath != "" {
+		loggerPath = kelvins.LoggerSetting.RootPath
+	}
 	if application.LoggerRootPath != "" {
-		rootPath = application.LoggerRootPath
+		loggerPath = application.LoggerRootPath
 	}
 	if *flagLoggerPath != "" {
-		rootPath = *flagLoggerPath
+		loggerPath = *flagLoggerPath
 	}
+	application.LoggerRootPath = loggerPath
+
 	loggerLevel := DefaultLoggerLevel
+	if kelvins.LoggerSetting != nil && kelvins.LoggerSetting.Level != "" {
+		loggerLevel = kelvins.LoggerSetting.Level
+	}
 	if application.LoggerLevel != "" {
 		loggerLevel = application.LoggerLevel
 	}
 	if *flagLoggerLevel != "" {
 		loggerLevel = *flagLoggerLevel
 	}
+	application.LoggerLevel = loggerLevel
 
-	err := log.InitGlobalConfig(rootPath, loggerLevel, application.Name)
+	environment := config.DefaultEnvironmentProd
+	if kelvins.ServerSetting != nil && kelvins.ServerSetting.Environment != "" {
+		environment = kelvins.ServerSetting.Environment
+	}
+	if application.Environment != "" {
+		environment = application.Environment
+	}
+	if *flagEnv != "" {
+		environment = *flagEnv
+	}
+	application.Environment = environment
+
+	err := log.InitGlobalConfig(loggerPath, loggerLevel, application.Name)
 	if err != nil {
 		return fmt.Errorf("log.InitGlobalConfig: %v", err)
 	}
@@ -68,6 +90,8 @@ func setupCommonVars(application *kelvins.Application) error {
 	}
 
 	if kelvins.MysqlSetting != nil && kelvins.MysqlSetting.Host != "" {
+		kelvins.MysqlSetting.LoggerLevel = application.LoggerLevel
+		kelvins.MysqlSetting.Environment = application.Environment
 		kelvins.GORM_DBEngine, err = setup.NewMySQLWithGORM(kelvins.MysqlSetting)
 		kelvins.XORM_DBEngine, err = setup.NewMySQLWithXORM(kelvins.MysqlSetting)
 		if err != nil {

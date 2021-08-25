@@ -3,19 +3,24 @@ package client_conn
 import (
 	"context"
 	"fmt"
+	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcRetry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/keepalive"
 	"strings"
+	"time"
 )
 
 var (
-	opts []grpc.DialOption
+	optsDefault []grpc.DialOption
+	optsStartup []grpc.DialOption
 )
 
 type ConnClient struct {
@@ -34,13 +39,29 @@ func NewConnClient(serviceName string) (*ConnClient, error) {
 }
 
 // return a valid connection as much as possible
-func (c *ConnClient) GetConn(ctx context.Context) (*grpc.ClientConn, error) {
+func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	target := fmt.Sprintf("%s:///%s", kelvinsScheme, c.ServerName)
-	return grpc.DialContext(
+
+	conn, err := getRPCConn(c.ServerName)
+	if err == nil && justConnEffective(conn) {
+		return conn, nil
+	}
+	// priority order: optsStartup > opts > optsDefault
+	optsUse := append(optsDefault, opts...)
+	conn, err = grpc.DialContext(
 		ctx,
 		target,
-		opts...,
+		append(optsUse, optsStartup...)...,
 	)
+
+	if err == nil && justConnEffective(conn) {
+		_ee := storageRPCConn(c.ServerName, conn)
+		if _ee != nil {
+			kelvins.FrameworkLogger.Errorf(ctx, "storageRPCConn(%s) err %v", c.ServerName, _ee)
+		}
+	}
+
+	return conn, err
 }
 
 // the returned endpoint list may have invalid nodes
@@ -50,6 +71,7 @@ func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err 
 	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
 	serviceConfigs, err := serviceConfigClient.GetConfigs()
 	if err != nil {
+		kelvins.FrameworkLogger.Errorf(ctx, "serviceConfigs get err %v", err)
 		return
 	}
 	for _, value := range serviceConfigs {
@@ -58,24 +80,63 @@ func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err 
 	return
 }
 
+func justConnEffective(conn *grpc.ClientConn) bool {
+	if conn == nil {
+		return false
+	}
+	state := conn.GetState()
+	if state == connectivity.Idle || state == connectivity.Ready {
+		return true
+	} else {
+		conn.Close()
+		return false
+	}
+}
+
+const (
+	grpcServiceConfig = `{
+	"loadBalancingPolicy": "round_robin",
+	"healthCheckConfig": {
+		"serviceName": ""
+	}
+}`
+)
+
+const (
+	defaultWriteBufSize = 32 * 1024
+	defaultReadBufSize  = 32 * 1024
+)
+
 func init() {
-	opts = append(opts, grpc.WithInsecure())
-	opts = append(opts, grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`))
-	opts = append(opts, grpc.WithUnaryInterceptor(
-		grpc_middleware.ChainUnaryClient(
+	optsDefault = append(optsDefault, grpc.WithInsecure())
+	optsDefault = append(optsDefault, grpc.WithDefaultServiceConfig(grpcServiceConfig))
+	optsDefault = append(optsDefault, grpc.WithUnaryInterceptor(
+		grpcMiddleware.ChainUnaryClient(
 			grpc_interceptor.UnaryCtxHandleGRPC(),
-			grpc_retry.UnaryClientInterceptor(
-				grpc_retry.WithMax(2),
-				grpc_retry.WithCodes(
+			grpcRetry.UnaryClientInterceptor(
+				grpcRetry.WithMax(2),
+				grpcRetry.WithCodes(
 					codes.Internal,
 					codes.DeadlineExceeded,
 				),
 			),
 		),
 	))
-	opts = append(opts, grpc.WithStreamInterceptor(
-		grpc_middleware.ChainStreamClient(
+	optsDefault = append(optsDefault, grpc.WithStreamInterceptor(
+		grpcMiddleware.ChainStreamClient(
 			grpc_interceptor.StreamCtxHandleGRPC(),
 		),
 	))
+	optsDefault = append(optsDefault, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:                6 * time.Minute,  // 客户端在这段时间之后如果没有活动的RPC，客户端将给服务器发送PING
+		Timeout:             20 * time.Second, // 连接服务端后等待一段时间后没有收到响应则关闭连接
+		PermitWithoutStream: true,             // 允许客户端在没有活动RPC的情况下向服务端发送PING
+	}))
+	optsDefault = append(optsDefault, grpc.WithReadBufferSize(defaultReadBufSize))
+	optsDefault = append(optsDefault, grpc.WithWriteBufferSize(defaultWriteBufSize))
+}
+
+// only executed at boot load, so no locks are used
+func RPCClientDialOptionAppend(opts []grpc.DialOption) {
+	optsStartup = append(optsStartup, opts...)
 }
