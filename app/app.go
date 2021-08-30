@@ -12,6 +12,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/goroutine"
 	"gitee.com/kelvins-io/kelvins/util/startup"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -195,4 +196,21 @@ func startUpControl(pidFile string) (next bool, err error) {
 		execStopFunc = true
 	}
 	return
+}
+
+func showAppVersion(app *kelvins.Application)  {
+	var logo = `%20__%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20___%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%0A%2F%5C%20%5C%20%20%20%20%20%20%20%20%20%20%20%20%20%2F%5C_%20%5C%20%20%20%20%20%20%20%20%20%20%20%20%20__%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%0A%5C%20%5C%20%5C%2F'%5C%20%20%20%20%20%20%20__%5C%2F%2F%5C%20%5C%20%20%20%20__%20%20__%20%2F%5C_%5C%20%20%20%20%20___%20%20%20%20%20%20____%20%20%0A%20%5C%20%5C%20%2C%20%3C%20%20%20%20%20%2F'__%60%5C%5C%20%5C%20%5C%20%20%2F%5C%20%5C%2F%5C%20%5C%5C%2F%5C%20%5C%20%20%2F'%20_%20%60%5C%20%20%20%2F'%2C__%5C%20%0A%20%20%5C%20%5C%20%5C%5C%60%5C%20%20%2F%5C%20%20__%2F%20%5C_%5C%20%5C_%5C%20%5C%20%5C_%2F%20%7C%5C%20%5C%20%5C%20%2F%5C%20%5C%2F%5C%20%5C%20%2F%5C__%2C%20%60%5C%0A%20%20%20%5C%20%5C_%5C%20%5C_%5C%5C%20%5C____%5C%2F%5C____%5C%5C%20%5C___%2F%20%20%5C%20%5C_%5C%5C%20%5C_%5C%20%5C_%5C%5C%2F%5C____%2F%0A%20%20%20%20%5C%2F_%2F%5C%2F_%2F%20%5C%2F____%2F%5C%2F____%2F%20%5C%2F__%2F%20%20%20%20%5C%2F_%2F%20%5C%2F_%2F%5C%2F_%2F%20%5C%2F___%2F%20`
+	var version = `[Major Version：%v Type：%v]`
+	var remote = `┌───────────────────────────────────────────────────┐
+│ [Gitee] https://gitee.com/kelvins-io/kelvins      │
+│ [GitHub] https://github.com/kelvins-io/kelvins    │
+└───────────────────────────────────────────────────┘`
+	logoS,_ := url.QueryUnescape(logo)
+	fmt.Println(logoS)
+	fmt.Println("")
+	fmt.Println(fmt.Sprintf(version,kelvins.Version, kelvins.AppTypeText[app.Type]))
+
+	fmt.Println("")
+	fmt.Println(remote)
+	fmt.Println("Go Go Go ==>")
 }

@@ -21,6 +21,8 @@ func RunCronApplication(application *kelvins.CronApplication) {
 	}
 	application.Type = kelvins.AppTypeCron
 
+	showAppVersion(application.Application)
+
 	err := prepareCron(application)
 	if err != nil {
 		logging.Infof("prepareCron err: %v\n", err)
@@ -29,6 +31,7 @@ func RunCronApplication(application *kelvins.CronApplication) {
 	appPrepareForceExit()
 	if application.Cron != nil {
 		application.Cron.Stop()
+		logging.Info("Cron Task Stop over")
 	}
 	err = appShutdown(application.Application)
 	if err != nil {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"gitee.com/kelvins-io/common/convert"
@@ -11,6 +12,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
+	"github.com/RichardKnop/machinery/v1"
 	queueLog "github.com/RichardKnop/machinery/v1/log"
 	"time"
 )
@@ -21,6 +23,8 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 		logging.Fatal("Application name can't not be empty")
 	}
 	application.Type = kelvins.AppTypeQueue
+
+	showAppVersion(application.Application)
 
 	err := runQueue(application)
 	if err != nil {
@@ -35,6 +39,8 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 	}
 	logging.Info("App appShutdown over")
 }
+
+var queueWorker =map[*machinery.Worker]struct{}{}
 
 // runQueue runs queue application.
 func runQueue(queueApp *kelvins.QueueApplication) error {
@@ -73,7 +79,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 		}
 	}
 
-	// startup control
+	// 4  startup control
 	next, err := startUpControl(kelvins.PIDFile)
 	if err != nil {
 		return err
@@ -82,11 +88,8 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 		return nil
 	}
 
-	// 4. apollo hot update listen
+	// 5. apollo hot update listen
 	//config.TriggerApolloHotUpdateListen(queueApp.Application)
-
-	// 5. start server
-	errorsChan := make(chan error)
 
 	// 6. event server
 	if queueApp.EventServer != nil {
@@ -123,19 +126,32 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	var queueList = []string{""}
 	queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
 
+	errorsChan := make(chan error,len(queueList))
 	for _, customQueue := range queueList {
 		cTag := consumerTag
 		if len(customQueue) > 0 {
 			cTag = customQueue + "-" + consumerTag
 		}
-
 		logging.Infof("Consumer Tag: %s\n", cTag)
 		worker := queueApp.QueueServer.TaskServer.NewCustomQueueWorker(cTag, concurrency, customQueue)
 		worker.LaunchAsync(errorsChan)
+		queueWorker[worker] = struct{}{}
 	}
-	err = <-errorsChan
 
-	<-kp.Exit() // worker can listen Interrupt,SIGTERM signal stop
+	<-kp.Exit() // worker not listen Interrupt,SIGTERM signal stop
+
+	queueWorkerStop()
+	close(errorsChan)
+	queueWorkerErr := bytes.Buffer{}
+	for c := range errorsChan {
+		if queueWorkerErr.String() == "" {
+			queueWorkerErr.WriteString("worker err=>")
+		}
+		queueWorkerErr.WriteString(c.Error())
+	}
+	if queueWorkerErr.String() != "" {
+		err = fmt.Errorf(queueWorkerErr.String())
+	}
 
 	return err
 }
@@ -200,6 +216,17 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	}
 
 	return fmt.Errorf("lack of kelvinsQueue* section config")
+}
+
+func queueWorkerStop()  {
+	for q := range queueWorker {
+		if q != nil {
+			// process exit worker should exit
+			//q.Quit()
+			//return
+		}
+	}
+	logging.Info("queue worker stop over")
 }
 
 var queueLoggerCtx = context.Background()
