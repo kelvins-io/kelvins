@@ -236,7 +236,6 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	serverUnaryInterceptors = append(serverUnaryInterceptors, authInterceptor.UnaryServerInterceptor(kelvins.RPCAuthSetting))
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.LoggingGRPC)
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.AppGRPC)
-	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.ErrorCodeGRPC)
 	if len(grpcApp.UnaryServerInterceptors) > 0 {
 		serverUnaryInterceptors = append(serverUnaryInterceptors, grpcApp.UnaryServerInterceptors...)
 	}

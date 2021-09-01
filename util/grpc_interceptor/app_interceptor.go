@@ -33,16 +33,17 @@ func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info 
 	if err != nil {
 		i.App.GSysErrLogger.Errorf(
 			ctx,
-			"access response, grpc method: %s, req: %s, response err: %v, details: %s",
+			"access response err：%s, grpc method: %s, req: %s, response：%s, details: %s",
+			s.Err().Error(),
 			info.FullMethod,
 			json.MarshalToStringNoError(req),
-			s.Err().Error(),
+			json.MarshalToStringNoError(resp),
 			json.MarshalToStringNoError(s.Details()),
 		)
 	} else if kelvins.ServerSetting.IsRecordCallResponse == true {
 		i.App.GKelvinsLogger.Infof(
 			ctx,
-			"access response, grpc method: %s, req: %s, response: %s",
+			"access response ok, grpc method: %s, req: %s, response: %s",
 			info.FullMethod,
 			json.MarshalToStringNoError(req),
 			json.MarshalToStringNoError(resp),
@@ -57,18 +58,9 @@ func (i *AppInterceptor) RecoveryGRPC(ctx context.Context, req interface{}, info
 	defer func() {
 		if e := recover(); e != nil {
 			debug.PrintStack()
-			i.App.GSysErrLogger.Errorf(ctx, "app panic err: %v, req: %s, stack: %s", e, json.MarshalToStringNoError(req), string(debug.Stack()[:]))
+			i.App.GSysErrLogger.Errorf(ctx, "app panic err: %v, grpc method: %s，req: %s, stack: %s", e, info.FullMethod, json.MarshalToStringNoError(req), string(debug.Stack()[:]))
 		}
 	}()
 
 	return handler(ctx, req)
-}
-
-func (i *AppInterceptor) ErrorCodeGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	resp, err := handler(ctx, req)
-	if err != nil {
-		i.App.GSysErrLogger.Errorf(ctx, "app return err: %v, stack: %s", err, string(debug.Stack()[:]))
-	}
-
-	return resp, err
 }
