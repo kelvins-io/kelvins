@@ -33,6 +33,8 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 	}
 	application.Type = kelvins.AppTypeGrpc
 
+	showAppVersion(application.Application)
+
 	err := runGRPC(application)
 	if err != nil {
 		logging.Infof("gRPC App.RunGRPC err: %v\n", err)

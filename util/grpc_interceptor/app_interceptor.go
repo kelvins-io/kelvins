@@ -33,7 +33,7 @@ func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info 
 	if err != nil {
 		i.App.GSysErrLogger.Errorf(
 			ctx,
-			"access response, grpc method: %s, req: %v, response err: %v, details: %v",
+			"access response, grpc method: %s, req: %s, response err: %v, details: %s",
 			info.FullMethod,
 			json.MarshalToStringNoError(req),
 			s.Err().Error(),

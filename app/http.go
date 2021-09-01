@@ -24,6 +24,8 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 	}
 	application.Type = kelvins.AppTypeHttp
 
+	showAppVersion(application.Application)
+
 	err := runHTTP(application)
 	if err != nil {
 		logging.Infof("App.RunHTTP err: %v\n", err)

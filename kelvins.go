@@ -21,6 +21,15 @@ const (
 	AppTypeHttp  = 4
 )
 
+var (
+	AppTypeText = map[int32]string{
+		AppTypeGrpc:"gRPC",
+		AppTypeCron:"Cron",
+		AppTypeQueue:"Queue",
+		AppTypeHttp:"Http",
+	}
+)
+
 // Application ...
 type Application struct {
 	Name           string
@@ -62,7 +71,7 @@ type GRPCHealthServer struct {
 	*health.Server
 }
 
-// let go of health check
+// AuthFuncOverride let go of health check
 func (a *GRPCHealthServer) AuthFuncOverride(ctx context.Context, fullMethodName string) (context.Context, error) {
 	return ctx, nil
 }
