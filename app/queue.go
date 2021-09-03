@@ -44,6 +44,9 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	if err != nil {
 		return err
 	}
+	if !appProcessNext {
+		return err
+	}
 
 	// 2 init queue vars
 	err = setupQueueVars(queueApp)
@@ -120,10 +123,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 // setupQueueVars ...
 func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	var err error
-	queueApp.QueueLogger, err = log.GetBusinessLogger("queue.consume")
-	if err != nil {
-		return fmt.Errorf("kelvinslog.GetBusinessLogger: %v", err)
-	}
+	queueApp.QueueLogger = kelvins.AccessLogger
 	queueLog.Set(&queueLogger{
 		logger: queueApp.QueueLogger,
 	})
@@ -154,11 +154,6 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	}
 	// init event server
 	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
-		logger, err := log.GetBusinessLogger("event")
-		if err != nil {
-			return err
-		}
-
 		// new event server
 		eventServer, err := event.NewEventServer(&event.Config{
 			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
@@ -167,7 +162,7 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
 			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
 			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
-		}, logger)
+		}, kelvins.BusinessLogger)
 		if err != nil {
 			return err
 		}
@@ -194,7 +189,7 @@ var queueLoggerCtx = context.Background()
 
 // queueLogger implements machinery log interface.
 type queueLogger struct {
-	logger *log.LoggerContext
+	logger log.LoggerContextIface
 }
 
 // Print uses logger to log info msg.

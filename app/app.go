@@ -208,7 +208,7 @@ var appCloseChOne sync.Once
 var appCloseCh = make(chan struct{})
 
 func appShutdown(application *kelvins.Application) error {
-	if !execStopFunc {
+	if !appProcessNext {
 		return nil
 	}
 	appCloseChOne.Do(func() {
@@ -263,7 +263,7 @@ func appPrepareForceExit() {
 	// Make sure to set a deadline on exiting the process
 	// after upg.Exit() is closed. No new upgrades can be
 	// performed if the parent doesn't exit.
-	if !execStopFunc {
+	if !appProcessNext {
 		return
 	}
 	time.AfterFunc(30*time.Second, func() {
@@ -272,12 +272,12 @@ func appPrepareForceExit() {
 	})
 }
 
-var execStopFunc bool
+var appProcessNext bool
 
 func startUpControl(pidFile string) (next bool, err error) {
 	next, err = startup.ParseCliCommand(pidFile)
 	if next {
-		execStopFunc = true
+		appProcessNext = true
 	}
 	return
 }
@@ -297,5 +297,5 @@ func showAppVersion(app *kelvins.Application) {
 
 	fmt.Println("")
 	fmt.Println(remote)
-	fmt.Println("Go Go Go ==>",app.Name)
+	fmt.Println("Go Go Go ==>", app.Name)
 }

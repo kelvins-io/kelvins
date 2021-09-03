@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"gitee.com/kelvins-io/common/event"
-	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
@@ -64,6 +63,9 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	// 1. init application
 	err = initApplication(grpcApp.Application)
 	if err != nil {
+		return err
+	}
+	if !appProcessNext {
 		return err
 	}
 
@@ -181,15 +183,8 @@ const (
 // setupGRPCVars ...
 func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	var err error
-	grpcApp.GKelvinsLogger, err = log.GetAccessLogger("grpc.access")
-	if err != nil {
-		return fmt.Errorf("kelvinslog.GetAccessLogger: %v", err)
-	}
-
-	grpcApp.GSysErrLogger, err = log.GetErrLogger("grpc.sys.err")
-	if err != nil {
-		return fmt.Errorf("kelvinslog.GetErrLogger: %v", err)
-	}
+	grpcApp.GKelvinsLogger = kelvins.AccessLogger
+	grpcApp.GSysErrLogger = kelvins.ErrLogger
 
 	var (
 		serverUnaryInterceptors  []grpc.UnaryServerInterceptor
@@ -335,11 +330,6 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 
 	// init event server
 	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
-		logger, err := log.GetBusinessLogger("event")
-		if err != nil {
-			return err
-		}
-
 		// new event server
 		eventServer, err := event.NewEventServer(&event.Config{
 			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
@@ -348,7 +338,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
 			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
 			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
-		}, logger)
+		}, kelvins.BusinessLogger)
 		if err != nil {
 			return err
 		}

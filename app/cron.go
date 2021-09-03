@@ -43,6 +43,9 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 	if err != nil {
 		return err
 	}
+	if !appProcessNext {
+		return err
+	}
 
 	// 2 init cron vars
 	err = setupCronVars(cronApp)
@@ -115,20 +118,11 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 
 // setupCronVars ...
 func setupCronVars(cronApp *kelvins.CronApplication) error {
-	var err error
-	cronApp.CronLogger, err = log.GetBusinessLogger("cron.schedule")
-	if err != nil {
-		return err
-	}
+	cronApp.CronLogger = kelvins.BusinessLogger
 	cronApp.Cron = cron.New(cron.WithSeconds())
 
 	// init event server
 	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
-		logger, err := log.GetBusinessLogger("event")
-		if err != nil {
-			return err
-		}
-
 		// new event server
 		eventServer, err := event.NewEventServer(&event.Config{
 			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
@@ -137,7 +131,7 @@ func setupCronVars(cronApp *kelvins.CronApplication) error {
 			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
 			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
 			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
-		}, logger)
+		}, kelvins.BusinessLogger)
 		if err != nil {
 			return err
 		}
@@ -152,7 +146,7 @@ func setupCronVars(cronApp *kelvins.CronApplication) error {
 // cronJob ...
 type cronJob struct {
 	name   string
-	logger *log.LoggerContext
+	logger log.LoggerContextIface
 }
 
 var cronJobCtx = context.Background()

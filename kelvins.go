@@ -23,10 +23,10 @@ const (
 
 var (
 	AppTypeText = map[int32]string{
-		AppTypeGrpc:"gRPC",
-		AppTypeCron:"Cron",
-		AppTypeQueue:"Queue",
-		AppTypeHttp:"Http",
+		AppTypeGrpc:  "gRPC",
+		AppTypeCron:  "Cron",
+		AppTypeQueue: "Queue",
+		AppTypeHttp:  "Http",
 	}
 )
 
@@ -55,8 +55,8 @@ type GRPCApplication struct {
 	Mux                      *http.ServeMux
 	HttpServer               *http.Server
 	TlsConfig                *tls.Config
-	GKelvinsLogger           *log.LoggerContext
-	GSysErrLogger            *log.LoggerContext
+	GKelvinsLogger           log.LoggerContextIface
+	GSysErrLogger            log.LoggerContextIface
 	UnaryServerInterceptors  []grpc.UnaryServerInterceptor
 	StreamServerInterceptors []grpc.StreamServerInterceptor
 	ServerOptions            []grpc.ServerOption
@@ -86,7 +86,7 @@ type CronJob struct {
 // CronApplication ...
 type CronApplication struct {
 	*Application
-	CronLogger           *log.LoggerContext
+	CronLogger           log.LoggerContextIface
 	Cron                 *cron.Cron
 	GenCronJobs          func() []*CronJob
 	EventServer          *event.EventServer
@@ -96,7 +96,7 @@ type CronApplication struct {
 // QueueApplication ...
 type QueueApplication struct {
 	*Application
-	QueueLogger          *log.LoggerContext
+	QueueLogger          log.LoggerContextIface
 	QueueServer          *queue.MachineryQueue
 	EventServer          *event.EventServer
 	GetNamedTaskFuncs    func() map[string]interface{}
@@ -107,7 +107,7 @@ type QueueApplication struct {
 type HTTPApplication struct {
 	*Application
 	Port                  int64
-	TraceLogger           *log.LoggerContext
+	TraceLogger           log.LoggerContextIface
 	TlsConfig             *tls.Config
 	Mux                   *http.ServeMux
 	HttpServer            *http.Server

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"gitee.com/kelvins-io/common/event"
-	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
@@ -47,6 +46,9 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	// 1. init application
 	err = initApplication(httpApp.Application)
 	if err != nil {
+		return err
+	}
+	if !appProcessNext {
 		return err
 	}
 
@@ -163,19 +165,10 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 }
 
 func setupHTTPVars(httpApp *kelvins.HTTPApplication) error {
-	var err error
-	httpApp.TraceLogger, err = log.GetAccessLogger("http.trace")
-	if err != nil {
-		return fmt.Errorf("kelvinslog.GetAccessLogger: %v", err)
-	}
+	httpApp.TraceLogger = kelvins.AccessLogger
 
 	// init event server
 	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
-		logger, err := log.GetBusinessLogger("event")
-		if err != nil {
-			return err
-		}
-
 		// new event server
 		eventServer, err := event.NewEventServer(&event.Config{
 			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
@@ -184,7 +177,7 @@ func setupHTTPVars(httpApp *kelvins.HTTPApplication) error {
 			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
 			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
 			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
-		}, logger)
+		}, kelvins.BusinessLogger)
 		if err != nil {
 			return err
 		}
