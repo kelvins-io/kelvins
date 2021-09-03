@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"gitee.com/kelvins-io/common/json"
-	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/util"
-	"github.com/coreos/etcd/client"
+	"gitee.com/kelvins-io/kelvins/internal/vars"
+	"github.com/etcd-io/etcd/client"
 	"strings"
 	"time"
 )
@@ -36,7 +36,7 @@ func NewServiceConfigClient(slb *slb.ServiceLB) *ServiceConfigClient {
 }
 
 func (s *ServiceConfigClient) GetKeyName(serverName string, sequences ...string) string {
-	key := ROOT + SERVICE + "." + serverName + "." + DEFAULT_CLUSTER + "@" + kelvins.Version
+	key := ROOT + SERVICE + "." + serverName + "." + DEFAULT_CLUSTER + "@" + vars.Version
 	for _, s := range sequences {
 		key += "/" + s
 	}

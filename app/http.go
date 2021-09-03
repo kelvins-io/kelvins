@@ -19,16 +19,11 @@ import (
 )
 
 func RunHTTPApplication(application *kelvins.HTTPApplication) {
-	if application.Name == "" {
-		logging.Fatal("Application name can't not be empty")
-	}
 	application.Type = kelvins.AppTypeHttp
-
-	showAppVersion(application.Application)
 
 	err := runHTTP(application)
 	if err != nil {
-		logging.Infof("App.RunHTTP err: %v\n", err)
+		logging.Infof("HttpApp runHTTP err: %v\n", err)
 	}
 
 	appPrepareForceExit()
@@ -36,62 +31,32 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 	if application.HttpServer != nil {
 		err = application.HttpServer.Shutdown(context.Background())
 		if err != nil {
-			logging.Infof("App.HttpServer Shutdown err: %v\n", err)
+			logging.Infof("HttpApp HttpServer Shutdown err: %v\n", err)
 		}
 	}
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Infof("App.appShutdown err: %v\n", err)
+		logging.Infof("HttpApp appShutdown err: %v\n", err)
 	}
-	logging.Info("App appShutdown over")
+	logging.Info("HttpApp appShutdown over")
 }
 
 func runHTTP(httpApp *kelvins.HTTPApplication) error {
+	var err error
 
-	// 1. load config
-	err := config.LoadDefaultConfig(httpApp.Application)
-	if err != nil {
-		return err
-	}
-	if httpApp.LoadConfig != nil {
-		err = httpApp.LoadConfig()
-		if err != nil {
-			return err
-		}
-	}
-
-	// 2. init application
+	// 1. init application
 	err = initApplication(httpApp.Application)
 	if err != nil {
 		return err
 	}
 
-	// 3. setup vars
-	err = setupCommonVars(httpApp.Application)
-	if err != nil {
-		return err
-	}
+	// 2 init http vars
 	err = setupHTTPVars(httpApp)
 	if err != nil {
 		return err
 	}
-	if httpApp.SetupVars != nil {
-		err = httpApp.SetupVars()
-		if err != nil {
-			return fmt.Errorf("httpApp.SetupVars err: %v", err)
-		}
-	}
 
-	// startup control
-	next, err := startUpControl(kelvins.PIDFile)
-	if err != nil {
-		return err
-	}
-	if !next {
-		return nil
-	}
-
-	// 4. set init service port
+	// 3. set init service port
 	var flagPort int64
 	if httpApp.Port > 0 { // use self define port to start process
 		flagPort = httpApp.Port
@@ -100,7 +65,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	}
 	currentPort := strconv.Itoa(int(flagPort))
 
-	// 5. get etcd service port
+	// 4. get etcd service port
 	etcdServerUrls := config.GetEtcdV3ServerURLs()
 	if etcdServerUrls == "" {
 		return fmt.Errorf("can't not found env '%s' ", config.ENV_ETCDV3_SERVER_URLS)
@@ -123,7 +88,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	}
 	kelvins.ServerSetting.EndPoint = ":" + currentPort
 
-	// 6. register http
+	// 5. register http
 	var handler http.Handler
 	if httpApp.RegisterHttpGinEngine != nil {
 		var httpGinEng *gin.Engine
@@ -156,7 +121,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		kelvins.ServerSetting,
 	)
 
-	// 7. register  event producer
+	// 6. register  event producer
 	if httpApp.EventServer != nil {
 		logging.Info("Start event server consume")
 		// subscribe event
@@ -174,7 +139,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		logging.Info("Start event server")
 	}
 
-	// 8. start server
+	// 7. start server
 	logging.Infof("Start http server listen %s\n", kelvins.ServerSetting.EndPoint)
 	network := "tcp"
 	if kelvins.ServerSetting.Network != "" {

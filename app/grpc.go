@@ -28,16 +28,11 @@ import (
 
 // RunGRPCApplication runs grpc application.
 func RunGRPCApplication(application *kelvins.GRPCApplication) {
-	if application.Name == "" {
-		logging.Fatal("Application name can't not be empty")
-	}
 	application.Type = kelvins.AppTypeGrpc
-
-	showAppVersion(application.Application)
 
 	err := runGRPC(application)
 	if err != nil {
-		logging.Infof("gRPC App.RunGRPC err: %v\n", err)
+		logging.Infof("gRPCApp runGRPC err: %v\n", err)
 	}
 
 	appPrepareForceExit()
@@ -45,70 +40,40 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 	if application.HttpServer != nil {
 		err = application.HttpServer.Shutdown(context.Background())
 		if err != nil {
-			logging.Infof("gRPC App HttpServer.Shutdown err: %v\n", err)
+			logging.Infof("gRPCApp HttpServer.Shutdown err: %v\n", err)
 		}
 	}
 	if application.GRPCServer != nil {
 		err = stopGRPC(application)
 		if err != nil {
-			logging.Infof("gRPC stopGRPC err: %v\n", err)
+			logging.Infof("gRPCApp stopGRPC err: %v\n", err)
 		}
 		application.GRPCServer.Stop()
 	}
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Infof("gRPC App.appShutdown err: %v\n", err)
+		logging.Infof("gRPCApp appShutdown err: %v\n", err)
 	}
-	logging.Info("gRPC App.appShutdown over")
+	logging.Info("gRPCApp appShutdown over")
 }
 
 // runGRPC runs grpc application.
 func runGRPC(grpcApp *kelvins.GRPCApplication) error {
+	var err error
 
-	// 1. load config
-	err := config.LoadDefaultConfig(grpcApp.Application)
-	if err != nil {
-		return err
-	}
-	if grpcApp.LoadConfig != nil {
-		err = grpcApp.LoadConfig()
-		if err != nil {
-			return err
-		}
-	}
-
-	// 2. init application
+	// 1. init application
 	err = initApplication(grpcApp.Application)
 	if err != nil {
 		return err
 	}
 
-	// 3. setup vars
-	err = setupCommonVars(grpcApp.Application)
-	if err != nil {
-		return err
-	}
+	// 2 init grpc vars
 	err = setupGRPCVars(grpcApp)
 	if err != nil {
 		return err
 	}
-	if grpcApp.SetupVars != nil {
-		err = grpcApp.SetupVars()
-		if err != nil {
-			return fmt.Errorf("App.SetupVars err: %v", err)
-		}
-	}
 
-	// startup control
-	next, err := startUpControl(kelvins.PIDFile)
-	if err != nil {
-		return err
-	}
-	if !next {
-		return nil
-	}
-
-	// 4. set init service port
+	// 3. set init service port
 	var flagPort int64
 	if grpcApp.Port > 0 { // use self define port to start process
 		flagPort = grpcApp.Port
@@ -117,7 +82,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	}
 	currentPort := strconv.Itoa(int(flagPort))
 
-	// 5. get etcd service port
+	// 4. get etcd service port
 	etcdServerUrls := config.GetEtcdV3ServerURLs()
 	if etcdServerUrls == "" {
 		return fmt.Errorf("can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
@@ -140,7 +105,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	}
 	kelvins.ServerSetting.EndPoint = ":" + currentPort
 
-	// 6. register grpc and http
+	// 5. register grpc and http
 	if grpcApp.RegisterGRPCServer != nil {
 		err = grpcApp.RegisterGRPCServer(grpcApp.GRPCServer)
 		if err != nil {
@@ -167,7 +132,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		}
 	}
 
-	// 7. register event producer
+	// 6. register event producer
 	if grpcApp.EventServer != nil {
 		logging.Info("gRPC Start event server consume")
 		// subscribe event
@@ -185,7 +150,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		logging.Info("gRPC Start event server")
 	}
 
-	// 8. start server
+	// 7. start server
 	logging.Infof("gRPC Start http server listen %s\n", kelvins.ServerSetting.EndPoint)
 	network := "tcp"
 	if kelvins.ServerSetting.Network != "" {
@@ -267,6 +232,18 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	}
 	// grpc app server option
 	serverOptions = append(serverOptions, grpcApp.ServerOptions...)
+	// server worker
+	{
+		cg := kelvins.RPCServerParamsSetting
+		// rpc server goroutine worker num default 0
+		if cg != nil && cg.NumServerWorkers > 0 {
+			serverOptions = append(serverOptions, grpc.NumStreamWorkers(uint32(cg.NumServerWorkers)))
+		}
+		// connection time is rawConn deadline default 120s
+		if cg != nil && cg.ConnectionTimeout > 0 {
+			serverOptions = append(serverOptions, grpc.ConnectionTimeout(time.Duration(cg.ConnectionTimeout)*time.Second))
+		}
+	}
 	// keep alive limit client
 	{
 		cg := kelvins.RPCServerKeepaliveEnforcementPolicySetting

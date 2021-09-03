@@ -22,7 +22,7 @@ func NewHttpServer(handler http.Handler, tlsConfig *tls.Config, serverSetting *s
 	}
 }
 
-// gRPCHandlerFunc ...
+// GRPCHandlerFunc gRPCHandlerFunc ...
 func GRPCHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler, serverSetting *setting.ServerSettingS) http.Handler {
 	if otherHandler == nil {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

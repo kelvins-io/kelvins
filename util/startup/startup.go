@@ -20,14 +20,6 @@ var (
 	control = flag.String("s", string(startUpStart), "control cmd eg: start，stop，restart")
 )
 
-func processControl(pid int, signal os.Signal) error {
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return err
-	}
-	return p.Signal(signal)
-}
-
 func ParseCliCommand(pidFile string) (next bool, err error) {
 	flag.Parse()
 	cmd := startUpType(*control)
@@ -67,4 +59,12 @@ func parsePidFile(pidFile string) (pid int, err error) {
 	}
 	pid, err = strconv.Atoi(string(content))
 	return
+}
+
+func processControl(pid int, signal os.Signal) error {
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+	return p.Signal(signal)
 }

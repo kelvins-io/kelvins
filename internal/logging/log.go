@@ -15,6 +15,14 @@ func Fatalf(format string, v ...interface{}) {
 	log.Fatalf(ERR+format, v...)
 }
 
+func Err(v string)  {
+	log.Printf(ERR+"%s", v)
+}
+
+func Errf(format string, v ...interface{})  {
+	log.Printf(ERR+format, v...)
+}
+
 func Info(v string) {
 	log.Printf(INFO+"%s", v)
 }

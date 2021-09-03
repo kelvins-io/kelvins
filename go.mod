@@ -11,7 +11,7 @@ require (
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
 	github.com/bojand/ghz v0.100.0
 	github.com/cloudflare/tableflip v1.2.2
-	github.com/coreos/etcd v3.3.22+incompatible
+	github.com/etcd-io/etcd v3.3.25+incompatible
 	github.com/gin-gonic/gin v1.7.1
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-sql-driver/mysql v1.5.0

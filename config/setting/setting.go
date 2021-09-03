@@ -26,6 +26,11 @@ func (s *ServerSettingS) GetIdleTimeout() time.Duration {
 	return time.Duration(s.IdleTimeout) * time.Second
 }
 
+type RPCServerParamsS struct {
+	NumServerWorkers  int64
+	ConnectionTimeout int64 // unit second
+}
+
 type RPCAuthSettingS struct {
 	Token             string
 	TransportSecurity bool

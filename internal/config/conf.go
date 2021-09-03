@@ -35,6 +35,8 @@ const (
 	SectionGPool = "kelvins-gpool"
 	// SectionAuth is rpc auth
 	SectionAuth = "kelvins-auth"
+	// SectionRPCServerParams is server rpc params
+	SectionRPCServerParams = "kelvins-rpc-server"
 	// SectionRPCServerKeepaliveParams is server rpc keep alive params
 	SectionRPCServerKeepaliveParams = "kelvins-rpc-server-kp"
 	// SectionRPCServerKeepaliveEnforcementPolicy is server rpc keep alive enf policy
@@ -76,6 +78,11 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 		if sectionName == SectionAuth {
 			kelvins.RPCAuthSetting = new(setting.RPCAuthSettingS)
 			MapConfig(sectionName, kelvins.RPCAuthSetting)
+			continue
+		}
+		if sectionName == SectionRPCServerParams {
+			kelvins.RPCServerParamsSetting = new(setting.RPCServerParamsS)
+			MapConfig(sectionName, kelvins.RPCServerParamsSetting)
 			continue
 		}
 		if sectionName == SectionRPCServerKeepaliveParams {

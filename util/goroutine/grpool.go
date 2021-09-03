@@ -2,12 +2,15 @@ package goroutine
 
 // thank https://github.com/ivpusic/grpool
 import (
-	"log"
+	"context"
+	"gitee.com/kelvins-io/kelvins/internal/logging"
+	"gitee.com/kelvins-io/kelvins/internal/vars"
+	"runtime/debug"
 	"sync"
 	"time"
 )
 
-// Gorouting instance which can accept client jobs
+// Grouting instance which can accept client jobs
 type worker struct {
 	workerPool chan *worker
 	jobChannel chan Job
@@ -35,7 +38,11 @@ func (w *worker) start() {
 func runJob(f func()) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("Job panic err: %v", err)
+			if vars.FrameworkLogger != nil {
+				vars.FrameworkLogger.Error(context.Background(), "[gPool] runJob panic err %v, stack: %v", err, string(debug.Stack()[:]))
+			} else {
+				logging.Errf("[gPool] runJob panic err %v, stack: %v\n", err, string(debug.Stack()[:]))
+			}
 		}
 	}()
 	f()
@@ -92,7 +99,7 @@ func newDispatcher(workerPool chan *worker, jobQueue chan Job) *dispatcher {
 	return d
 }
 
-// Represents user request, function which should be executed in some worker.
+// Job Represents user request, function which should be executed in some worker.
 type Job func()
 
 type Pool struct {
@@ -101,7 +108,7 @@ type Pool struct {
 	wg         sync.WaitGroup
 }
 
-// Will make pool of gorouting workers.
+// NewPool Will make pool of gorouting workers.
 // numWorkers - how many workers will be created for this pool
 // queueLen - how many jobs can we accept until we block
 //
@@ -154,7 +161,7 @@ func (p *Pool) SendJob(job func()) {
 	p.JobQueue <- p.wrapJob(job)
 }
 
-// In case you are using WaitAll fn, you should call this method
+// JobDone In case you are using WaitAll fn, you should call this method
 // every time your job is done.
 //
 // If you are not using WaitAll then we assume you have your own way of synchronizing.
@@ -162,18 +169,18 @@ func (p *Pool) JobDone() {
 	p.wg.Done()
 }
 
-// How many jobs we should wait when calling WaitAll.
+// WaitCount How many jobs we should wait when calling WaitAll.
 // It is using WaitGroup Add/Done/Wait
 func (p *Pool) WaitCount(count int) {
 	p.wg.Add(count)
 }
 
-// Will wait for all jobs to finish.
+// WaitAll Will wait for all jobs to finish.
 func (p *Pool) WaitAll() {
 	p.wg.Wait()
 }
 
-// Will release resources used by pool
+// Release Will release resources used by pool
 func (p *Pool) Release() {
 	p.dispatcher.stop <- struct{}{}
 	<-p.dispatcher.stop

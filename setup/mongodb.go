@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"gitee.com/kelvins-io/kelvins/config/setting"
+	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"github.com/qiniu/qmgo"
-	"log"
 )
 
 func NewMongoDBClient(mongodbSetting *setting.MongoDBSettingS) (*qmgo.QmgoClient, error) {
@@ -53,7 +53,7 @@ func NewMongoDBClient(mongodbSetting *setting.MongoDBSettingS) (*qmgo.QmgoClient
 	}
 	client, err := qmgo.Open(ctx, mgoCfg)
 	if err != nil {
-		log.Printf("mongodb open err: %v\n", err)
+		logging.Errf("mongodb(%s) open err: %v\n", mongodbSetting.Uri, err)
 		return nil, err
 	}
 

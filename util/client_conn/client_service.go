@@ -3,10 +3,11 @@ package client_conn
 import (
 	"context"
 	"fmt"
-	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
+	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
+	"gitee.com/kelvins-io/kelvins/internal/vars"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
 	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcRetry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
@@ -38,7 +39,7 @@ func NewConnClient(serviceName string) (*ConnClient, error) {
 	}, nil
 }
 
-// return a valid connection as much as possible
+// GetConn return a valid connection as much as possible
 func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	target := fmt.Sprintf("%s:///%s", kelvinsScheme, c.ServerName)
 
@@ -57,21 +58,29 @@ func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grp
 	if err == nil && justConnEffective(conn) {
 		_ee := storageRPCConn(c.ServerName, conn)
 		if _ee != nil {
-			kelvins.FrameworkLogger.Errorf(ctx, "storageRPCConn(%s) err %v", c.ServerName, _ee)
+			if vars.FrameworkLogger != nil {
+				vars.FrameworkLogger.Errorf(ctx, "storageRPCConn(%s) err %v", c.ServerName, _ee)
+			} else {
+				logging.Errf("storageRPCConn(%s) err %v\n", c.ServerName, _ee)
+			}
 		}
 	}
 
 	return conn, err
 }
 
-// the returned endpoint list may have invalid nodes
+// GetEndpoints the returned endpoint list may have invalid nodes
 func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err error) {
 	etcdServerUrls := config.GetEtcdV3ServerURLs()
 	serviceLB := slb.NewService(etcdServerUrls, c.ServerName)
 	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
 	serviceConfigs, err := serviceConfigClient.GetConfigs()
 	if err != nil {
-		kelvins.FrameworkLogger.Errorf(ctx, "serviceConfigs get err %v", err)
+		if vars.FrameworkLogger != nil {
+			vars.FrameworkLogger.Errorf(ctx, "serviceConfigs %v GetConfigs err %v",c.ServerName, err)
+		} else {
+			logging.Errf("serviceConfigs %v GetConfigs err %v\n",c.ServerName, err)
+		}
 		return
 	}
 	for _, value := range serviceConfigs {
@@ -136,7 +145,7 @@ func init() {
 	optsDefault = append(optsDefault, grpc.WithWriteBufferSize(defaultWriteBufSize))
 }
 
-// only executed at boot load, so no locks are used
+// RPCClientDialOptionAppend only executed at boot load, so no locks are used
 func RPCClientDialOptionAppend(opts []grpc.DialOption) {
 	optsStartup = append(optsStartup, opts...)
 }

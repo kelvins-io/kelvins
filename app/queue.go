@@ -8,7 +8,6 @@ import (
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
-	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
@@ -19,79 +18,40 @@ import (
 
 // RunQueueApplication runs queue application.
 func RunQueueApplication(application *kelvins.QueueApplication) {
-	if application.Name == "" {
-		logging.Fatal("Application name can't not be empty")
-	}
 	application.Type = kelvins.AppTypeQueue
-
-	showAppVersion(application.Application)
 
 	err := runQueue(application)
 	if err != nil {
-		logging.Infof("RunQueueApplication err: %v\n", err)
+		logging.Infof("QueueApp runQueue err: %v\n", err)
 	}
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
 	err = appShutdown(application.Application)
 	if err != nil {
-		logging.Infof("App.appShutdown err: %v\n", err)
+		logging.Infof("QueueApp appShutdown err: %v\n", err)
 	}
-	logging.Info("App appShutdown over")
+	logging.Info("QueueApp appShutdown over")
 }
 
-var queueWorker =map[*machinery.Worker]struct{}{}
+var queueWorker = map[*machinery.Worker]struct{}{}
 
 // runQueue runs queue application.
 func runQueue(queueApp *kelvins.QueueApplication) error {
-
-	// 1. load config
-	err := config.LoadDefaultConfig(queueApp.Application)
-	if err != nil {
-		return err
-	}
-	if queueApp.LoadConfig != nil {
-		err = queueApp.LoadConfig()
-		if err != nil {
-			return err
-		}
-	}
-
-	// 2. init application
+	// 1. init application
+	var err error
 	err = initApplication(queueApp.Application)
 	if err != nil {
 		return err
 	}
 
-	// 3. setup vars
-	err = setupCommonVars(queueApp.Application)
-	if err != nil {
-		return err
-	}
+	// 2 init queue vars
 	err = setupQueueVars(queueApp)
 	if err != nil {
 		return err
 	}
-	if queueApp.SetupVars != nil {
-		err = queueApp.SetupVars()
-		if err != nil {
-			return err
-		}
-	}
 
-	// 4  startup control
-	next, err := startUpControl(kelvins.PIDFile)
-	if err != nil {
-		return err
-	}
-	if !next {
-		return nil
-	}
-
-	// 5. apollo hot update listen
-	//config.TriggerApolloHotUpdateListen(queueApp.Application)
-
-	// 6. event server
+	// 3. event server
 	if queueApp.EventServer != nil {
 		logging.Info("Start event server consume")
 		// subscribe event
@@ -109,7 +69,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 		logging.Info("Start event server")
 	}
 
-	// 7. queue server
+	// 4. queue server
 	logging.Info("Start queue server consume")
 	concurrency := len(queueApp.GetNamedTaskFuncs())
 	if kelvins.QueueServerSetting != nil {
@@ -126,7 +86,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 	var queueList = []string{""}
 	queueList = append(queueList, kelvins.QueueServerSetting.CustomQueueList...)
 
-	errorsChan := make(chan error,len(queueList))
+	errorsChan := make(chan error, len(queueList))
 	for _, customQueue := range queueList {
 		cTag := consumerTag
 		if len(customQueue) > 0 {
@@ -140,6 +100,7 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 
 	<-kp.Exit() // worker not listen Interrupt,SIGTERM signal stop
 
+	// 5 close
 	queueWorkerStop()
 	close(errorsChan)
 	queueWorkerErr := bytes.Buffer{}
@@ -218,10 +179,10 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	return fmt.Errorf("lack of kelvinsQueue* section config")
 }
 
-func queueWorkerStop()  {
+func queueWorkerStop() {
 	for q := range queueWorker {
 		if q != nil {
-			// process exit worker should exit
+			// process exit queue worker should exit
 			//q.Quit()
 			//return
 		}

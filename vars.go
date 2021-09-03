@@ -10,13 +10,15 @@ import (
 	"xorm.io/xorm"
 )
 
-// RedisConn is a global vars for redis connect.
+// this VARS user should only read
+
+// RedisConn is a global vars for redis connect，close by Framework exit
 var RedisConn *redis.Pool
 
-// GORM_DBEngine is a global vars for mysql connect.
+// GORM_DBEngine is a global vars for mysql connect，close by Framework exit
 var GORM_DBEngine *gorm.DB
 
-// XORM_DBEngine is a global vars for mysql connect.
+// XORM_DBEngine is a global vars for mysql connect，close by Framework exit
 var XORM_DBEngine xorm.EngineInterface
 
 // FrameworkLogger is a global var for Framework log
@@ -37,7 +39,10 @@ var LoggerSetting *setting.LoggerSettingS
 // ServerSetting is maps config section "kelvins-server"
 var ServerSetting *setting.ServerSettingS
 
-// ServerAuthSetting is maps config section "kelvins-auth"
+// RPCServerParamsSetting is maps config section "kelvins-rpc-server"
+var RPCServerParamsSetting *setting.RPCServerParamsS
+
+// RPCAuthSetting is maps config section "kelvins-auth"
 var RPCAuthSetting *setting.RPCAuthSettingS
 
 // RPCServerKeepaliveParamsSetting is maps config section "kelvins-rpc-server-kp"
@@ -55,7 +60,7 @@ var RPCTransportBufferSetting *setting.RPCTransportBufferS
 // MysqlSetting is maps config section "kelvins-mysql"
 var MysqlSetting *setting.MysqlSettingS
 
-// MysqlSetting is maps config section "kelvins-redis"
+// RedisSetting is maps config section "kelvins-redis"
 var RedisSetting *setting.RedisSettingS
 
 // QueueRedisSetting is maps config section "kelvins-queue-redis"
@@ -76,20 +81,20 @@ var QueueAMQPSetting *setting.QueueAMQPSettingS
 // MongoDBSetting is maps config section "kelvins-mongodb"
 var MongoDBSetting *setting.MongoDBSettingS
 
-// MongoDBClient is qmgo-client for mongodb.
+// MongoDBClient is qmgo-client for mongodb，close by Framework exit
 var MongoDBClient *qmgo.QmgoClient
 
 // GPoolSetting is maps config section "kelvins-gpool"
 var GPoolSetting *setting.GPoolSettingS
 
-// GPool is goroutine pool
+// GPool is goroutine pool，close by Framework exit
 var GPool *goroutine.Pool
 
-// PIDFile is process pid
+// PIDFile is process pid，manage by Framework user only read
 var PIDFile string
 
 // ServerName is server name
 var ServerName string
 
-// AppCloseCh is app shutdown notice
-var AppCloseCh = make(chan struct{})
+// AppCloseCh is app shutdown notice，close by Framework exit; user only read
+var AppCloseCh <-chan struct{}

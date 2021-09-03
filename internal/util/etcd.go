@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coreos/etcd/client"
+	"github.com/etcd-io/etcd/client"
 )
 
 func NewEtcd(urls string) (client.Client, error) {

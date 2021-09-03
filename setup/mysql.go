@@ -21,7 +21,7 @@ import (
 	xormLog "xorm.io/xorm/log"
 )
 
-// NewMySQL returns *gorm.DB instance.
+// NewMySQLWithGORM NewMySQL returns *gorm.DB instance.
 func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 	if mysqlSetting == nil {
 		return nil, fmt.Errorf("mysqlSetting is nil")
@@ -128,7 +128,7 @@ var xormLogLevel = map[string]xormLog.LogLevel{
 	"error": xormLog.LOG_ERR,
 }
 
-// NewMySQL returns *xorm.DB instance.
+// NewMySQLWithXORM NewMySQL returns *xorm.DB instance.
 func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface, error) {
 	if mysqlSetting == nil {
 		return nil, fmt.Errorf("mysqlSetting is nil")

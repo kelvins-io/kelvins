@@ -6,7 +6,7 @@ go/golang微服务框架
 ### 支持特性
 注册服务，发现服务，grpc/http gateway，cron，queue，http/gin服务，插拔式配置加载，双orm支持，mysql，mongo支持，事件总线，日志，异步任务池，   
 Prometheus/pprof监控，进程优雅重启，应用自定义配置，启动flag参数指定，应用hook，工具类（由kelvins-io/common支持），全局变量vars，   
-在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool
+在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool，gRPC服务端&客户端参数配置
 
 #### 即将支持
 限流，熔断，异常接入sentry，kelvins-tools工具箱（一键生成应用，运维部署等）
@@ -40,7 +40,7 @@ export ETCDV3_SERVER_URL=http://10.211.55.4:2379,http://10.211.55.7:2379
 
 **必要配置项：   
 kelvins-server    
-时间单位#秒，Network和Timeout仅对在线应用有效   
+时间单位#秒，Network和Timeout仅对在线应用（h2c->gPRC，http）有效   
 Environment可选值：dev，test，release，prod   
 ```ini
 [kelvins-server]
@@ -183,7 +183,17 @@ Token = "abc1234"
 TransportSecurity = false
 ```
 
-下面这些RPC参数生效的优先级：配置文件 > 代码设置 > 默认值   
+kelvins RPC-gRPC采用h2c（非TLS的http2） 接入方式（为了兼容http gateway）   
+下面这些RPC参数（如无特殊无需配置）生效的优先级：配置文件 > 代码设置 > 默认值   
+kelvins-rpc-server   
+RPC服务端参数，各参数为零则使用默认值   
+RPC服务端工作者数量，listen原始Conn超时（h2c接入rpc方式则无效）；时间单位#秒   
+```ini
+[kelvins-rpc-server]
+NumServerWorkers = 500
+ConnectionTimeout = 120
+```
+
 kelvins-rpc-server-kp   
 RPC服务端keepalive参数   
 时间单位#秒   
@@ -223,13 +233,13 @@ ClientWriteBufSizeKB = 32
 micro-mall-api/etc/app.ini#EmailConfig就属于自定义配置项    
 
 --启动flag参数   
-说明：flag参数优先级高于配置文件中同名配置参数，flag参数均可不指定，默认从进程运行目录/etc/app.ini加载，日志文件路径默认在进程运行目录/logs   
+说明：flag参数优先级高于配置文件中同名配置参数，flag参数均可不指定，默认从进程运行目录etc/app.ini加载，日志文件路径默认在进程运行目录logs   
 -logger_level 日志级别   
 -logger_path  日志文件路径   
 -conf_file  配置文件（ini文件）路径  
 -env 运行环境变量：dev test prod    
 -s start 启动进程   
--s restart 重启当前进程   
+-s restart 重启当前进程（Windows平台无效）   
 -s stop 停止当前进程   
 
 ### APP注册参考
@@ -273,7 +283,7 @@ func main() {
 2020-8-27 | 预览版上线 | https://gitee.com/cristiane | 支持gRPC，HTTP，crontab，queue类应用
 2020-9-10 | 增加MongoDB支持 | https://gitee.com/cristiane | 基于配置加载MongoDB来初始化应用
 2020-9-13 | 支持Redis队列 | https://gitee.com/cristiane | 基于配置加载queue-Redis来初始化应用
-2020-11-24 | v2 | https://gitee.com/cristiane | 若干更新
+2020-11-24 | 若干更新 | https://gitee.com/cristiane | 若干更新
 2021-4-5 | 支持应用优雅重启，退出 | https://gitee.com/cristiane | 基于操作系统信号，各平台有差异
 2021-4-19 | 支持gin | https://gitee.com/cristiane | 允许将gin http handler注册到应用
 2021-7-9 | 兼容Windows | https://gitee.com/cristiane | 修复Windows平台应用不能启动问题
@@ -283,9 +293,10 @@ func main() {
 2021-8-13 | RPC健康检查 | https://gitee.com/cristiane | 支持使用grpc-health-probe等工具进行健康检查
 2021-8-14 | RPC接入授权-token | https://gitee.com/cristiane | RPC应用支持开启接入授权
 2021-8-14 | RPC-ghz压测试工具 | https://gitee.com/cristiane | 支持对RPC应用进行压力测试并输出报告
+2021-9-1 | 若干更新 | https://gitee.com/cristiane | rpc日志对齐&rpc server参数配置化&启动优化
 
 ### 业务应用
-micro-mall-api系列共计16个服务：https://gitee.com/cristiane/micro-mall-api
+micro-mall-api系列共计16+个服务：https://gitee.com/cristiane/micro-mall-api
 
 ###技术交流
 QQ群：578859618   

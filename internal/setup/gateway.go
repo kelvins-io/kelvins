@@ -5,10 +5,11 @@ import (
 	"gitee.com/kelvins-io/common/errcode"
 	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/common/proto/common"
-	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/vars"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"log"
 	"net/http"
 )
 
@@ -25,7 +26,7 @@ func NewGateway() *runtime.ServeMux {
 }
 
 // customHTTPError customs grpc-gateway response json.
-func customHTTPError(ctx context.Context, _ *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, _ *http.Request, err error) {
+func customHTTPError(ctx context.Context, _ *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, r *http.Request, err error) {
 	s, ok := status.FromError(err)
 	if !ok {
 		s = status.New(codes.Unknown, err.Error())
@@ -53,7 +54,11 @@ func customHTTPError(ctx context.Context, _ *runtime.ServeMux, marshaler runtime
 		grpcErrReturn.ErrMsg = errcode.GetErrMsg(errCode)
 		grpcErrReturn.ErrDetail = s.Message()
 
-		kelvins.ErrLogger.Errorf(ctx, "grpc-gateway err: %s", s.Message())
+		if vars.ErrLogger != nil {
+			vars.ErrLogger.Errorf(ctx, "grpc-gateway(%s) err: %s", r.RemoteAddr+":"+r.RequestURI, s.Message())
+		} else {
+			log.Printf("grpc-gateway(%s) err: %s\n", r.RemoteAddr+":"+r.RequestURI, s.Message())
+		}
 	}
 
 	respMessage, _ := json.Marshal(grpcErrReturn)
@@ -62,6 +67,10 @@ func customHTTPError(ctx context.Context, _ *runtime.ServeMux, marshaler runtime
 	w.WriteHeader(errcode.ToHttpStatusCode(s.Code()))
 	_, err = w.Write(respMessage)
 	if err != nil {
-		kelvins.ErrLogger.Errorf(ctx, "Gateway response write err: %v, msg: %s", err, s.Message())
+		if vars.ErrLogger != nil {
+			vars.ErrLogger.Errorf(ctx, "Gateway(%s) response write err: %v, msg: %s", r.RemoteAddr+":"+r.RequestURI, err, s.Message())
+		} else {
+			log.Printf("Gateway(%s) response write err: %v, msg: %s\n", r.RemoteAddr+":"+r.RequestURI, err, s.Message())
+		}
 	}
 }

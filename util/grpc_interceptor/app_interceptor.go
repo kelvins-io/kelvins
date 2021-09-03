@@ -4,6 +4,7 @@ import (
 	"context"
 	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/vars"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -21,12 +22,12 @@ func (i *AppInterceptor) AppGRPC(ctx context.Context, req interface{}, info *grp
 	md, _ := metadata.FromIncomingContext(ctx)
 	md.Append("kelvins-service-name", i.App.Name)
 	md.Append("kelvins-service-type", strconv.Itoa(int(i.App.Type)))
-	md.Append("kelvins-service-version", kelvins.Version)
+	md.Append("kelvins-service-version", vars.Version)
 	newCtx := metadata.NewIncomingContext(ctx, md)
 	return handler(newCtx, req)
 }
 
-// loggingGRPC logs GRPC request.
+// LoggingGRPC loggingGRPC logs GRPC request.
 func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	resp, err := handler(ctx, req)
 	s, _ := status.FromError(err)

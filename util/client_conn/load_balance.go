@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
+	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
+	"gitee.com/kelvins-io/kelvins/internal/vars"
 	"google.golang.org/grpc/resolver"
 	"time"
 )
@@ -90,7 +92,11 @@ func (r *kelvinsResolver) resolverServiceConfig() {
 	}
 	if err != nil {
 		r.cc.ReportError(fmt.Errorf("serviceConfigClient GetConfigs err: %v, key suffix: %v", err, serviceName))
-		kelvins.FrameworkLogger.Errorf(emptyCtx, "serviceConfigClient GetConfigs err: %v, key suffix: %v", err, serviceName)
+		if vars.FrameworkLogger != nil {
+			vars.FrameworkLogger.Errorf(emptyCtx, "serviceConfigClient GetConfigs err: %v, key suffix: %v", err, serviceName)
+		} else {
+			logging.Errf("serviceConfigClient GetConfigs err: %v, key suffix: %v\n", err, serviceName)
+		}
 		return
 	}
 
