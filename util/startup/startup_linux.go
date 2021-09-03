@@ -1,5 +1,10 @@
 package startup
 
+import (
+	"gitee.com/kelvins-io/kelvins/internal/logging"
+	"syscall"
+)
+
 func execProcessCmd(pid int, upType startUpType) (next bool, err error) {
 	switch upType {
 	case startUpReStart:

@@ -1,6 +1,10 @@
 package startup
 
-import "runtime"
+import (
+	"gitee.com/kelvins-io/kelvins/internal/logging"
+	"syscall"
+	"runtime"
+)
 
 func execProcessCmd(pid int, upType startUpType) (next bool, err error) {
 	cmd := *control
