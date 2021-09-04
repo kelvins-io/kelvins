@@ -41,7 +41,7 @@ ETCDV3_SERVER_URLS
 ```
 笔者自己环境的配置（仅做参考） 
 export ETCDCTL_API=3
-export ETCDV3_SERVER_URL=http://10.211.55.4:2379,http://10.211.55.7:2379
+export ETCDV3_SERVER_URLS=http://10.211.55.4:2379,http://10.211.55.7:2379
 如果自己搭建etcd集群最少需要两个节点（一主一从）本地搭建参考：https://gitee.com/cristiane/micro-mall-api/blob/master/%E5%BE%AE%E5%95%86%E5%9F%8EETCD%E9%83%A8%E7%BD%B2.pdf
 ```
 
@@ -50,6 +50,9 @@ export ETCDV3_SERVER_URL=http://10.211.55.4:2379,http://10.211.55.7:2379
 运行环境标识，可选值有：dev，test，release，prod；分别对应开发环境，测试环境，预发布/灰度环境，prod正式环境
 ```
 新版本的kelvins不再依赖GO_ENV   
+
+### 生成应用
+参考kelvins-tools工具箱：https://gitee.com/kelvins-io/kelvins-tools/blob/master/README.md
 
 ### 目前最新版支持的配置文件
 ``` 
