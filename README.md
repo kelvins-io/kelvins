@@ -6,14 +6,35 @@ go/golang微服务框架
 ### 支持特性
 注册服务，发现服务，grpc/http gateway，cron，queue，http/gin服务，插拔式配置加载，双orm支持，mysql，mongo支持，事件总线，日志，异步任务池，   
 Prometheus/pprof监控，进程优雅重启，应用自定义配置，启动flag参数指定，应用hook，工具类（由kelvins-io/common支持），全局变量vars，   
-在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool，gRPC服务端&客户端参数配置
+在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool，gRPC服务端&客户端参数配置，kelvins-tools工具箱
 
 #### 即将支持
-限流，熔断，异常接入sentry，kelvins-tools工具箱（一键生成应用，运维部署等）
+限流，熔断，异常接入sentry
 
 ### 软件环境
 > go 1.13.15+
 
+rpc采用gRPC，如果使用请安装依赖库
+```shell
+protoc 安装方法如下
+wget https://github.com/google/protobuf/releases/download/v3.14.0/protobuf-all-3.14.0.zip
+unzip protobuf-all-3.14.0.zip
+cd protobuf-3.14.0/
+./configure
+make
+make install
+# 如果报错请执行
+ldconfig
+# grpc相关
+go get -u google.golang.org/grpc@v1.32.0
+go get -u google.golang.org/protobuf@v1.25.0
+go get -u github.com/golang/protobuf/protoc-gen-go@v.1.4.3
+go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway@v1.14.3
+go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
+go get -u github.com/jteeuwen/go-bindata/...
+go get github.com/elazarl/go-bindata-assetfs/...
+python 2.7或3.5
+```
 ### 运行环境变量
 etcd集群地址   
 ETCDV3_SERVER_URLS     
@@ -293,12 +314,12 @@ func main() {
 2021-8-13 | RPC健康检查 | https://gitee.com/cristiane | 支持使用grpc-health-probe等工具进行健康检查
 2021-8-14 | RPC接入授权-token | https://gitee.com/cristiane | RPC应用支持开启接入授权
 2021-8-14 | RPC-ghz压测试工具 | https://gitee.com/cristiane | 支持对RPC应用进行压力测试并输出报告
-2021-9-1 | 若干更新 | https://gitee.com/cristiane | rpc日志对齐&rpc server参数配置化&启动优化
+2021-9-~ | 若干更新 | https://gitee.com/cristiane | rpc日志对齐&rpc server参数配置化&启动优化
 
 ### 业务应用
 micro-mall-api系列共计16+个服务：https://gitee.com/cristiane/micro-mall-api
 
 ###技术交流
-QQ群：578859618   
+QQ群：852053097   
 ![avatar](./交流群.JPG)   
 邮件：1225807604@qq.com
