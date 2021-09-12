@@ -91,11 +91,11 @@ func (r *kelvinsResolver) resolverServiceConfig() {
 		}
 	}
 	if err != nil {
-		r.cc.ReportError(fmt.Errorf("serviceConfigClient GetConfigs err: %v, key suffix: %v", err, serviceName))
+		r.cc.ReportError(fmt.Errorf("etcd GetConfig(%v) err: %v", serviceName, err))
 		if vars.FrameworkLogger != nil {
-			vars.FrameworkLogger.Errorf(emptyCtx, "serviceConfigClient GetConfigs err: %v, key suffix: %v", err, serviceName)
+			vars.FrameworkLogger.Errorf(emptyCtx, "etcd GetConfig(%v) err: %v", serviceName, err)
 		} else {
-			logging.Errf("serviceConfigClient GetConfigs err: %v, key suffix: %v\n", err, serviceName)
+			logging.Errf("etcd GetConfig(%v) err: %v\n", serviceName, err)
 		}
 		return
 	}

@@ -46,7 +46,7 @@ func (s *ServiceConfigClient) GetKeyName(serverName string, sequences ...string)
 func (s *ServiceConfigClient) GetConfig(sequence string) (*Config, error) {
 	cli, err := util.NewEtcd(s.ServiceLB.EtcdServerUrl)
 	if err != nil {
-		return nil, fmt.Errorf("util.NewEtcdKeysAPI err: %v", err)
+		return nil, fmt.Errorf("util.NewEtcd err: %v，etcdUrl: %v", err, s.ServiceLB.EtcdServerUrl)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -79,7 +79,7 @@ func (s *ServiceConfigClient) GetConfig(sequence string) (*Config, error) {
 func (s *ServiceConfigClient) ClearConfig(sequence string) error {
 	cli, err := util.NewEtcd(s.ServiceLB.EtcdServerUrl)
 	if err != nil {
-		return fmt.Errorf("util.NewEtcdKeysAPI err: %v", err)
+		return fmt.Errorf("util.NewEtcd err: %v，etcdUrl: %v", err, s.ServiceLB.EtcdServerUrl)
 	}
 
 	key := s.GetKeyName(s.ServiceLB.ServerName, sequence)
@@ -100,7 +100,7 @@ func (s *ServiceConfigClient) ClearConfig(sequence string) error {
 func (s *ServiceConfigClient) WriteConfig(sequence string, c Config) error {
 	cli, err := util.NewEtcd(s.ServiceLB.EtcdServerUrl)
 	if err != nil {
-		return fmt.Errorf("util.NewEtcdKeysAPI err: %v", err)
+		return fmt.Errorf("util.NewEtcd err: %v，etcdUrl: %v", err, s.ServiceLB.EtcdServerUrl)
 	}
 
 	key := s.GetKeyName(s.ServiceLB.ServerName, sequence)
@@ -132,7 +132,7 @@ func (s *ServiceConfigClient) GetConfigs() (map[string]*Config, error) {
 func (s *ServiceConfigClient) listConfigs(key string) (map[string]*Config, error) {
 	cli, err := util.NewEtcd(s.ServiceLB.EtcdServerUrl)
 	if err != nil {
-		return nil, fmt.Errorf("util.NewEtcdKeysAPI err: %v", err)
+		return nil, fmt.Errorf("util.NewEtcd err: %v，etcdUrl: %v", err, s.ServiceLB.EtcdServerUrl)
 	}
 
 	kapi := client.NewKeysAPI(cli)
@@ -158,7 +158,7 @@ func (s *ServiceConfigClient) listConfigs(key string) (map[string]*Config, error
 					return nil, fmt.Errorf("json.UnmarshalByte err: %v values: %v", err, info.Value)
 				}
 
-				configs[string(info.Key)] = config
+				configs[info.Key] = config
 			}
 		}
 	}

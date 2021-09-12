@@ -90,6 +90,7 @@ Level = "debug"
  
 kelvins-mysql   
 MySQL：连接配置信息  
+时间单位为时间表达字符串   
 ```ini
 [kelvins-mysql]
 Host = "127.0.0.1:3306"
@@ -102,16 +103,24 @@ MaxIdleConns = 5
 ConnMaxLifeSecond = 3600
 MultiStatements = true
 ParseTime = true
+ConnectionTimeout = "30s"
+WriteTimeout = "30s"
+ReadTimeout = "30s"
 ```
 
 kelvins-redis   
 Redis：连接配置信息   
+时间单位秒   
 ```ini
 [kelvins-redis]
 Host = "127.0.0.1:6379"
 Password = "f434rtafadsfasd"
 DB = 1
 PoolNum = 10
+IdleTimeout = 300
+ConnectTimeout = 30
+ReadTimeout = 30
+WriteTimeout = 30
 ```
 
 kelvins-mongodb   
@@ -135,6 +144,7 @@ Broker = "redis://xxx"
 DefaultQueue = "user_register_notice"
 ResultBackend = "redis://fdfsfds@127.0.0.1:6379/8"
 ResultsExpireIn = 3600
+DisableConsume = false
 ```
 
 kelvins-queue-ali-amqp   
@@ -153,12 +163,13 @@ Exchange = "user_register_notice"
 ExchangeType = "direct"
 BindingKey = "user_register_notice"
 PrefetchCount = 6
+DisableConsume = false
 ```
 
 kelvins-queue-amqp   
 队列功能-amqp协议（也就是自己搭建的rabbitmq）   
 ```ini
-[queue-user-register-notice]
+[kelvins-queue-amqp]
 Broker = "amqp://micro-mall:xx@127.0.0.1:5672/micro-mall"
 DefaultQueue = "user_register_notice"
 ResultBackend = "redis://xxx@127.0.0.1:6379/8"
@@ -169,6 +180,7 @@ BindingKey = "user_register_notice"
 PrefetchCount = 5
 TaskRetryCount = 3
 TaskRetryTimeout = 3600
+DisableConsume = false
 ```
  
 kelvins-queue-ali-rocketmq   
@@ -261,13 +273,13 @@ micro-mall-api/etc/app.ini#EmailConfig就属于自定义配置项
 -logger_level 日志级别   
 -logger_path  日志文件路径   
 -conf_file  配置文件（ini文件）路径  
--env 运行环境变量：dev test prod    
+-env 运行环境变量：dev test release prod    
 -s start 启动进程   
 -s restart 重启当前进程（Windows平台无效）   
 -s stop 停止当前进程   
 
 ### APP注册参考
-请在你的应用main.go中注册application
+1. 请在你的应用main.go中注册application
 ```go
 package main
 
@@ -300,6 +312,21 @@ func main() {
 }
 ```
 
+2. RPC健康检查   
+当RPC APP的RegisterHealthServer不为nil时，kelvins就会为服务注入健康检查server，并在协程中启动监控维护函数   
+使用grpc-health-probe工具命令进行健康检查   
+kelvins rpc对健康检查接入做了免授权，所以即使服务开启了token验证也是可用的   
+```shell
+# 安装grpc-health-probe
+git clone https://github.com/grpc-ecosystem/grpc-health-probe && cd grpc-health-probe && go build
+# 查看命令
+grpc-health-probe --help
+# 对指定服务监控检查，服务名必须正确 完整：服务包名.服务名
+grpc-health-probe -addr=127.0.0.1:58688 -service="kelvins_template.YourService"
+# 对整体服务健康检查
+grpc-health-probe -addr=127.0.0.1:58688 -service=""
+```
+
 ### 更新日志
 时间 | 内容 |  贡献者 | 备注  
 ---|------|------|---
@@ -317,7 +344,8 @@ func main() {
 2021-8-13 | RPC健康检查 | https://gitee.com/cristiane | 支持使用grpc-health-probe等工具进行健康检查
 2021-8-14 | RPC接入授权-token | https://gitee.com/cristiane | RPC应用支持开启接入授权
 2021-8-14 | RPC-ghz压测试工具 | https://gitee.com/cristiane | 支持对RPC应用进行压力测试并输出报告
-2021-9-~ | 若干更新 | https://gitee.com/cristiane | rpc日志对齐&rpc server参数配置化&启动优化
+2021-9-1 | 若干更新 | https://gitee.com/cristiane | rpc日志对齐&rpc server参数配置化&启动优化
+2021-9-11 | 若干更新 | https://gitee.com/cristiane | client_service,print,queue等若干优化
 
 ### 业务应用
 micro-mall-api系列共计16+个服务：https://gitee.com/cristiane/micro-mall-api

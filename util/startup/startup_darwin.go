@@ -8,13 +8,13 @@ import (
 func execProcessCmd(pid int, upType startUpType) (next bool, err error) {
 	switch upType {
 	case startUpReStart:
-		logging.Info("process restart...")
+		logging.Infof("process %d restart...\n", pid)
 		err = processControl(pid, syscall.SIGUSR1)
-		logging.Info("process restart over")
+		logging.Infof("process %d restart over\n", pid)
 	case startUpStop:
-		logging.Info("process stop...")
+		logging.Infof("process %d stop...\n", pid)
 		err = processControl(pid, syscall.SIGTERM)
-		logging.Info("process stop over")
+		logging.Infof("process %d stop over\n", pid)
 	default:
 		next = true
 	}

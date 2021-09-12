@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
@@ -15,27 +14,36 @@ import (
 
 // RunCronApplication runs cron application.
 func RunCronApplication(application *kelvins.CronApplication) {
-	application.Type = kelvins.AppTypeCron
+	// app instance once validate
+	{
+		err := appInstanceOnceValidate()
+		if err != nil {
+			logging.Fatal(err.Error())
+		}
+	}
 
-	err := prepareCron(application)
+	application.Type = kelvins.AppTypeCron
+	kelvins.CronAppInstance = application
+
+	err := runCron(application)
 	if err != nil {
-		logging.Infof("CronApp prepareCron err: %v\n", err)
+		logging.Infof("cronApp runCron err: %v\n", err)
 	}
 
 	appPrepareForceExit()
 	if application.Cron != nil {
 		application.Cron.Stop()
-		logging.Info("CronApp Task Stop over")
+		logging.Info("cronApp Task Stop over")
 	}
-	err = appShutdown(application.Application)
+	err = appShutdown(application.Application, 0)
 	if err != nil {
-		logging.Infof("CronApp appShutdown err: %v\n", err)
+		logging.Infof("cronApp appShutdown err: %v\n", err)
 	}
-	logging.Info("CronApp appShutdown over")
+	logging.Info("cronApp appShutdown over")
 }
 
-// prepareCron prepares cron application.
-func prepareCron(cronApp *kelvins.CronApplication) error {
+// runCron prepares cron application.
+func runCron(cronApp *kelvins.CronApplication) error {
 	var err error
 
 	// 1. init application
@@ -54,21 +62,14 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 	}
 
 	// 3  register event handler
-	if cronApp.EventServer != nil && cronApp.RegisterEventHandler != nil {
-		logging.Info("Start event server consume")
-		// subscribe event
+	if kelvins.EventServerAliRocketMQ != nil {
+		logging.Info("cronApp Start event server")
+		if cronApp.RegisterEventProducer != nil {
+			appRegisterEventProducer(cronApp.RegisterEventProducer, cronApp.Type)
+		}
 		if cronApp.RegisterEventHandler != nil {
-			err := cronApp.RegisterEventHandler(cronApp.EventServer)
-			if err != nil {
-				return err
-			}
+			appRegisterEventHandler(cronApp.RegisterEventHandler, cronApp.Type)
 		}
-		// start event server
-		err = cronApp.EventServer.Start()
-		if err != nil {
-			return err
-		}
-		logging.Info("Start event server")
 	}
 
 	// 4. register cron jobs
@@ -78,25 +79,25 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 			jobNameDict := map[string]int{}
 			for _, j := range cronJobs {
 				if j.Name == "" {
-					return fmt.Errorf("Lack of CronJob.Name")
+					return fmt.Errorf("lack of CronJob.Name")
 				}
 				if j.Spec == "" {
-					return fmt.Errorf("Lack of CronJob.Spec")
+					return fmt.Errorf("lack of CronJob.Spec")
 				}
 				if j.Job == nil {
-					return fmt.Errorf("Lack of CronJob.Job")
+					return fmt.Errorf("lack of CronJob.Job")
 				}
 				if _, ok := jobNameDict[j.Name]; ok {
-					return fmt.Errorf("Repeat job name: %s", j.Name)
+					return fmt.Errorf("repeat job name: %s", j.Name)
 				}
 				jobNameDict[j.Name] = 1
 				job := &cronJob{
-					logger: cronApp.CronLogger,
+					logger: kelvins.BusinessLogger,
 					name:   j.Name,
 				}
 				_, err = cronApp.Cron.AddFunc(j.Spec, job.warpJob(j.Job))
 				if err != nil {
-					return fmt.Errorf("Cron.AddFunc err: %v", err)
+					return fmt.Errorf("addFunc err: %v", err)
 				}
 			}
 		}
@@ -106,9 +107,9 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 	kp := new(kprocess.KProcess)
 	_, err = kp.Listen("", "", kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("KProcess listen err: %v", err)
+		return fmt.Errorf("kprocess listen pidFile(%v) err: %v", kelvins.PIDFile, err)
 	}
-	logging.Info("Start cron task")
+	logging.Info("cronApp Start cron task")
 	cronApp.Cron.Start()
 
 	<-kp.Exit()
@@ -118,26 +119,11 @@ func prepareCron(cronApp *kelvins.CronApplication) error {
 
 // setupCronVars ...
 func setupCronVars(cronApp *kelvins.CronApplication) error {
-	cronApp.CronLogger = kelvins.BusinessLogger
 	cronApp.Cron = cron.New(cron.WithSeconds())
 
-	// init event server
-	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
-		// new event server
-		eventServer, err := event.NewEventServer(&event.Config{
-			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
-			RegionId:     kelvins.AliRocketMQSetting.RegionId,
-			AccessKey:    kelvins.AliRocketMQSetting.AccessKey,
-			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
-			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
-			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
-		}, kelvins.BusinessLogger)
-		if err != nil {
-			return err
-		}
-
-		cronApp.EventServer = eventServer
-		return nil
+	err := setupCommonQueue(nil)
+	if err != nil {
+		return err
 	}
 
 	return nil

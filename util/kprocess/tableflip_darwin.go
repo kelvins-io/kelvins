@@ -86,7 +86,7 @@ func (k *KProcess) signal(upgradeFunc, stopFunc func() error) {
 				if err != nil {
 					logging.Infof("KProcess exec stopFunc failed:%v\n", err)
 				}
-				logging.Infof("process [%d] stop...\n", k.pid)
+				logging.Infof("process %d stop...\n", k.pid)
 			}
 			return
 		case syscall.SIGUSR1, syscall.SIGUSR2:
@@ -95,7 +95,7 @@ func (k *KProcess) signal(upgradeFunc, stopFunc func() error) {
 				if err != nil {
 					logging.Infof("KProcess exec Upgrade failed:%v\n", err)
 				}
-				logging.Infof("process [%d] restart...\n", k.pid)
+				logging.Infof("process %d restart...\n", k.pid)
 			}
 		}
 	}

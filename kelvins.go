@@ -6,6 +6,7 @@ import (
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/common/queue"
+	"github.com/RichardKnop/machinery/v1"
 	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/robfig/cron/v3"
@@ -63,8 +64,8 @@ type GRPCApplication struct {
 	RegisterGRPCServer       func(*grpc.Server) error
 	RegisterGateway          func(context.Context, *runtime.ServeMux, string, []grpc.DialOption) error
 	RegisterHttpRoute        func(*http.ServeMux) error
-	EventServer              *event.EventServer
 	RegisterEventProducer    func(event.ProducerIface) error
+	RegisterEventHandler     func(event.EventServerIface) error
 }
 
 type GRPCHealthServer struct {
@@ -86,33 +87,30 @@ type CronJob struct {
 // CronApplication ...
 type CronApplication struct {
 	*Application
-	CronLogger           log.LoggerContextIface
-	Cron                 *cron.Cron
-	GenCronJobs          func() []*CronJob
-	EventServer          *event.EventServer
-	RegisterEventHandler func(event.EventServerIface) error
+	Cron                  *cron.Cron
+	GenCronJobs           func() []*CronJob
+	RegisterEventProducer func(event.ProducerIface) error
+	RegisterEventHandler  func(event.EventServerIface) error
 }
 
 // QueueApplication ...
 type QueueApplication struct {
 	*Application
-	QueueLogger          log.LoggerContextIface
-	QueueServer          *queue.MachineryQueue
-	EventServer          *event.EventServer
-	GetNamedTaskFuncs    func() map[string]interface{}
-	RegisterEventHandler func(event.EventServerIface) error
+	QueueServerToWorker   map[*queue.MachineryQueue][]*machinery.Worker
+	GetNamedTaskFuncs     func() map[string]interface{}
+	RegisterEventProducer func(event.ProducerIface) error
+	RegisterEventHandler  func(event.EventServerIface) error
 }
 
 // HTTPApplication ...
 type HTTPApplication struct {
 	*Application
 	Port                  int64
-	TraceLogger           log.LoggerContextIface
 	TlsConfig             *tls.Config
 	Mux                   *http.ServeMux
 	HttpServer            *http.Server
 	RegisterHttpRoute     func(*http.ServeMux) error
 	RegisterHttpGinEngine func() (*gin.Engine, error) // is not nil will over RegisterHttpRoute
-	EventServer           *event.EventServer
 	RegisterEventProducer func(event.ProducerIface) error
+	RegisterEventHandler  func(event.EventServerIface) error
 }

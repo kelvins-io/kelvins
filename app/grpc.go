@@ -3,14 +3,9 @@ package app
 import (
 	"context"
 	"fmt"
-	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/kelvins"
-	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
-	"gitee.com/kelvins-io/kelvins/internal/service/slb"
-	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
-	"gitee.com/kelvins-io/kelvins/internal/setup"
-	"gitee.com/kelvins-io/kelvins/internal/util"
+	setupInternal "gitee.com/kelvins-io/kelvins/internal/setup"
 	"gitee.com/kelvins-io/kelvins/util/client_conn"
 	"gitee.com/kelvins-io/kelvins/util/grpc_interceptor"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
@@ -21,17 +16,25 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 	"math"
-	"strconv"
 	"time"
 )
 
 // RunGRPCApplication runs grpc application.
 func RunGRPCApplication(application *kelvins.GRPCApplication) {
+	// app instance once validate
+	{
+		err := appInstanceOnceValidate()
+		if err != nil {
+			logging.Fatal(err.Error())
+		}
+	}
+
 	application.Type = kelvins.AppTypeGrpc
+	kelvins.GRPCAppInstance = application
 
 	err := runGRPC(application)
 	if err != nil {
-		logging.Infof("gRPCApp runGRPC err: %v\n", err)
+		logging.Infof("grpcApp runGRPC err: %v\n", err)
 	}
 
 	appPrepareForceExit()
@@ -39,21 +42,21 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 	if application.HttpServer != nil {
 		err = application.HttpServer.Shutdown(context.Background())
 		if err != nil {
-			logging.Infof("gRPCApp HttpServer.Shutdown err: %v\n", err)
+			logging.Infof("grpcApp HttpServer.Shutdown err: %v\n", err)
 		}
 	}
 	if application.GRPCServer != nil {
 		err = stopGRPC(application)
 		if err != nil {
-			logging.Infof("gRPCApp stopGRPC err: %v\n", err)
+			logging.Infof("grpcApp stopGRPC err: %v\n", err)
 		}
 		application.GRPCServer.Stop()
 	}
-	err = appShutdown(application.Application)
+	err = appShutdown(application.Application, application.Port)
 	if err != nil {
-		logging.Infof("gRPCApp appShutdown err: %v\n", err)
+		logging.Infof("grpcApp appShutdown err: %v\n", err)
 	}
-	logging.Info("gRPCApp appShutdown over")
+	logging.Info("grpcApp appShutdown over")
 }
 
 // runGRPC runs grpc application.
@@ -75,43 +78,18 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		return err
 	}
 
-	// 3. set init service port
-	var flagPort int64
-	if grpcApp.Port > 0 { // use self define port to start process
-		flagPort = grpcApp.Port
-	} else {
-		flagPort = int64(util.RandInt(50000, 60000))
-	}
-	currentPort := strconv.Itoa(int(flagPort))
-
-	// 4. get etcd service port
-	etcdServerUrls := config.GetEtcdV3ServerURLs()
-	if etcdServerUrls == "" {
-		return fmt.Errorf("can't not found env '%s'", config.ENV_ETCDV3_SERVER_URLS)
-	}
-	serviceLB := slb.NewService(etcdServerUrls, grpcApp.Name)
-	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
-	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
-	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
-		return fmt.Errorf("serviceConfig.GetConfig err: %v sequence(%v)", err, currentPort)
-	}
-	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
-		return fmt.Errorf("serviceConfig.GetConfig currentPort(%v) exist", currentPort)
-	}
-	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
-		ServiceVersion: kelvins.Version,
-		ServicePort:    currentPort,
-	})
+	// 3. register service port
+	portEtcd, err := appRegisterServiceToEtcd(grpcApp.Name, grpcApp.Port)
 	if err != nil {
-		return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
+		return err
 	}
-	kelvins.ServerSetting.EndPoint = ":" + currentPort
+	grpcApp.Port = portEtcd
 
-	// 5. register grpc and http
+	// 4. register grpc and http
 	if grpcApp.RegisterGRPCServer != nil {
 		err = grpcApp.RegisterGRPCServer(grpcApp.GRPCServer)
 		if err != nil {
-			return fmt.Errorf("App.RegisterGRPCServer err: %v", err)
+			return fmt.Errorf("registerGRPCServer err: %v", err)
 		}
 	}
 	if grpcApp.RegisterGateway != nil {
@@ -120,53 +98,46 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 		err = grpcApp.RegisterGateway(
 			context.Background(),
 			grpcApp.GatewayServeMux,
-			kelvins.ServerSetting.EndPoint,
+			fmt.Sprintf(":%d", grpcApp.Port),
 			opts,
 		)
 		if err != nil {
-			return fmt.Errorf("App.RegisterGateway err: %v", err)
+			return fmt.Errorf("registerGateway err: %v", err)
 		}
 	}
 	if grpcApp.RegisterHttpRoute != nil {
 		err = grpcApp.RegisterHttpRoute(grpcApp.Mux)
 		if err != nil {
-			return fmt.Errorf("App.RegisterHttpRoute err: %v", err)
+			return fmt.Errorf("registerHttpRoute err: %v", err)
 		}
 	}
 
-	// 6. register event producer
-	if grpcApp.EventServer != nil {
-		logging.Info("gRPC Start event server consume")
-		// subscribe event
+	// 5. register event producer
+	if kelvins.EventServerAliRocketMQ != nil {
+		logging.Info("grpcApp Start event server")
 		if grpcApp.RegisterEventProducer != nil {
-			err := grpcApp.RegisterEventProducer(grpcApp.EventServer)
-			if err != nil {
-				return err
-			}
+			appRegisterEventProducer(grpcApp.RegisterEventProducer, grpcApp.Type)
 		}
-		// start event server
-		err = grpcApp.EventServer.Start()
-		if err != nil {
-			return err
+		if grpcApp.RegisterEventHandler != nil {
+			appRegisterEventHandler(grpcApp.RegisterEventHandler, grpcApp.Type)
 		}
-		logging.Info("gRPC Start event server")
 	}
 
-	// 7. start server
-	logging.Infof("gRPC Start http server listen %s\n", kelvins.ServerSetting.EndPoint)
+	// 6. start server
 	network := "tcp"
 	if kelvins.ServerSetting.Network != "" {
 		network = kelvins.ServerSetting.Network
 	}
 	kp := new(kprocess.KProcess)
-	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
+	ln, err := kp.Listen(network, fmt.Sprintf(":%d", grpcApp.Port), kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("gRPC KProcess Listen %s%s err: %v", network, kelvins.ServerSetting.EndPoint, err)
+		return fmt.Errorf("kprocess listen(%s:%d) pidFile(%v) err: %v", network, grpcApp.Port, kelvins.PIDFile, err)
 	}
+	logging.Infof("start http server listen(%s-%d) \n", network, grpcApp.Port)
 	go func() {
 		err = grpcApp.HttpServer.Serve(ln)
 		if err != nil {
-			logging.Infof("gRPC HttpServer serve err: %v", err)
+			logging.Infof("grpcApp HttpServer serve err: %v", err)
 		}
 	}()
 
@@ -199,7 +170,9 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	if len(grpcApp.UnaryServerInterceptors) > 0 {
 		serverUnaryInterceptors = append(serverUnaryInterceptors, grpcApp.UnaryServerInterceptors...)
 	}
+	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.RecoveryGRPCStream)
 	serverStreamInterceptors = append(serverStreamInterceptors, authInterceptor.StreamServerInterceptor(kelvins.RPCAuthSetting))
+	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.AppGRPCStream)
 	if len(grpcApp.StreamServerInterceptors) > 0 {
 		serverStreamInterceptors = append(serverStreamInterceptors, grpcApp.StreamServerInterceptors...)
 	}
@@ -307,7 +280,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		}
 	}
 
-	grpcApp.GRPCServer, err = setup.NewGRPC(kelvins.ServerSetting, serverOptions)
+	grpcApp.GRPCServer, err = setupInternal.NewGRPC(kelvins.ServerSetting, serverOptions)
 	if err != nil {
 		return fmt.Errorf("Setup.SetupGRPC err: %v", err)
 	}
@@ -320,31 +293,18 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 			}()
 		}
 	}
-	grpcApp.GatewayServeMux = setup.NewGateway()
-	grpcApp.Mux = setup.NewGatewayServerMux(grpcApp.GatewayServeMux)
-	grpcApp.HttpServer = setup.NewHttpServer(
-		setup.GRPCHandlerFunc(grpcApp.GRPCServer, grpcApp.Mux, kelvins.ServerSetting),
+	grpcApp.GatewayServeMux = setupInternal.NewGateway()
+	grpcApp.Mux = setupInternal.NewGatewayServerMux(grpcApp.GatewayServeMux)
+	kelvins.ServerSetting.SetAddr(fmt.Sprintf(":%d", grpcApp.Port))
+	grpcApp.HttpServer = setupInternal.NewHttpServer(
+		setupInternal.GRPCHandlerFunc(grpcApp.GRPCServer, grpcApp.Mux, kelvins.ServerSetting),
 		grpcApp.TlsConfig,
 		kelvins.ServerSetting,
 	)
-
-	// init event server
-	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
-		// new event server
-		eventServer, err := event.NewEventServer(&event.Config{
-			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
-			RegionId:     kelvins.AliRocketMQSetting.RegionId,
-			AccessKey:    kelvins.AliRocketMQSetting.AccessKey,
-			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
-			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
-			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
-		}, kelvins.BusinessLogger)
-		if err != nil {
-			return err
-		}
-
-		grpcApp.EventServer = eventServer
-		return nil
+	// queue
+	err = setupCommonQueue(nil)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -354,5 +314,6 @@ func stopGRPC(grpcApp *kelvins.GRPCApplication) error {
 	if grpcApp.HealthServer != nil {
 		grpcApp.HealthServer.Shutdown()
 	}
+
 	return nil
 }

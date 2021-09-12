@@ -16,12 +16,17 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/keepalive"
 	"strings"
+	"sync"
 	"time"
 )
 
 var (
 	optsDefault []grpc.DialOption
 	optsStartup []grpc.DialOption
+)
+
+var (
+	mutexCreateConn sync.Map
 )
 
 type ConnClient struct {
@@ -31,7 +36,7 @@ type ConnClient struct {
 func NewConnClient(serviceName string) (*ConnClient, error) {
 	serviceNames := strings.Split(serviceName, "-")
 	if len(serviceNames) < 1 {
-		return nil, fmt.Errorf("serviceNames(%v) format not contain '-'", serviceName)
+		return nil, fmt.Errorf("serviceNames(%v) format not contain `-` ", serviceName)
 	}
 
 	return &ConnClient{
@@ -47,6 +52,20 @@ func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grp
 	if err == nil && justConnEffective(conn) {
 		return conn, nil
 	}
+
+	// prevent the same service from concurrently creating connections
+	{
+		v, _ := mutexCreateConn.LoadOrStore(c.ServerName, &sync.Mutex{})
+		mutex := v.(*sync.Mutex)
+		mutex.Lock()
+		defer mutex.Unlock()
+	}
+
+	conn, err = getRPCConn(c.ServerName)
+	if err == nil && justConnEffective(conn) {
+		return conn, nil
+	}
+
 	// priority order: optsStartup > opts > optsDefault
 	optsUse := append(optsDefault, opts...)
 	conn, err = grpc.DialContext(
@@ -77,9 +96,9 @@ func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err 
 	serviceConfigs, err := serviceConfigClient.GetConfigs()
 	if err != nil {
 		if vars.FrameworkLogger != nil {
-			vars.FrameworkLogger.Errorf(ctx, "serviceConfigs %v GetConfigs err %v",c.ServerName, err)
+			vars.FrameworkLogger.Errorf(ctx, "etcd GetConfig(%v) err %v", c.ServerName, err)
 		} else {
-			logging.Errf("serviceConfigs %v GetConfigs err %v\n",c.ServerName, err)
+			logging.Errf("etcd GetConfig(%v) err %v\n", c.ServerName, err)
 		}
 		return
 	}

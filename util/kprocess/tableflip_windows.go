@@ -59,7 +59,7 @@ func (k *KProcess) signal(stopFunc func() error) {
 				if err != nil {
 					logging.Infof("KProcess exec stopFunc failed:%v\n", err)
 				}
-				logging.Infof("process [%d] stop...\n", k.pid)
+				logging.Infof("process %d stop...\n", k.pid)
 			}
 			return
 		}

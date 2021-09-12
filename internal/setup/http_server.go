@@ -13,9 +13,9 @@ import (
 // NewHttpServer ...
 func NewHttpServer(handler http.Handler, tlsConfig *tls.Config, serverSetting *setting.ServerSettingS) *http.Server {
 	return &http.Server{
-		Addr:         serverSetting.EndPoint,
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
+		Addr:         serverSetting.GetAddr(),
 		ReadTimeout:  serverSetting.GetReadTimeout(),
 		WriteTimeout: serverSetting.GetWriteTimeout(),
 		IdleTimeout:  serverSetting.GetIdleTimeout(),

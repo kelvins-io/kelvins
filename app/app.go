@@ -2,22 +2,26 @@ package app
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
+	"gitee.com/kelvins-io/kelvins/internal/util"
 	"gitee.com/kelvins-io/kelvins/internal/vars"
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/goroutine"
 	"gitee.com/kelvins-io/kelvins/util/startup"
 	"net/url"
 	"os"
-	"strings"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -37,7 +41,7 @@ func initApplication(application *kelvins.Application) error {
 	if application.Name == "" {
 		logging.Fatal("Application name can't not be empty")
 	}
-	kelvins.ServerName = application.Name
+	kelvins.AppName = application.Name
 
 	// 1 show app version
 	showAppVersion(application)
@@ -200,6 +204,50 @@ func setupCommonVars(application *kelvins.Application) error {
 	}
 	vars.AccessLogger = kelvins.AccessLogger
 
+	// init event server
+	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
+		// new event server
+		eventServer, err := event.NewEventServer(&event.Config{
+			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
+			RegionId:     kelvins.AliRocketMQSetting.RegionId,
+			AccessKey:    kelvins.AliRocketMQSetting.AccessKey,
+			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
+			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
+			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
+		}, kelvins.BusinessLogger)
+		if err != nil {
+			return err
+		}
+		kelvins.EventServerAliRocketMQ = eventServer
+		return nil
+	}
+
+	return nil
+}
+
+func setupCommonQueue(namedTaskFunc map[string]interface{}) error {
+	if kelvins.QueueRedisSetting != nil && kelvins.QueueRedisSetting.Broker != "" {
+		queueServ, err := setup.NewRedisQueue(kelvins.QueueRedisSetting, namedTaskFunc)
+		if err != nil {
+			return err
+		}
+		kelvins.QueueServerRedis = queueServ
+	}
+	if kelvins.QueueAMQPSetting != nil && kelvins.QueueAMQPSetting.Broker != "" {
+		queueServ, err := setup.NewAMQPQueue(kelvins.QueueAMQPSetting, namedTaskFunc)
+		if err != nil {
+			return err
+		}
+		kelvins.QueueServerAMQP = queueServ
+	}
+	if kelvins.QueueAliAMQPSetting != nil && kelvins.QueueAliAMQPSetting.VHost != "" {
+		queueServ, err := setup.NewAliAMQPQueue(kelvins.QueueAliAMQPSetting, namedTaskFunc)
+		if err != nil {
+			return err
+		}
+		kelvins.QueueServerAliAMQP = queueServ
+	}
+
 	return nil
 }
 
@@ -207,7 +255,7 @@ func setupCommonVars(application *kelvins.Application) error {
 var appCloseChOne sync.Once
 var appCloseCh = make(chan struct{})
 
-func appShutdown(application *kelvins.Application) error {
+func appShutdown(application *kelvins.Application, port int64) error {
 	if !appProcessNext {
 		return nil
 	}
@@ -223,14 +271,16 @@ func appShutdown(application *kelvins.Application) error {
 	if application.Type == kelvins.AppTypeHttp || application.Type == kelvins.AppTypeGrpc {
 		etcdServerUrls := config.GetEtcdV3ServerURLs()
 		if etcdServerUrls == "" {
-			return fmt.Errorf("can't not found env '%s'\n", config.ENV_ETCDV3_SERVER_URLS)
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+			return fmt.Errorf("etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
 		}
 		serviceLB := slb.NewService(etcdServerUrls, application.Name)
 		serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
-		sequence := strings.TrimPrefix(kelvins.ServerSetting.EndPoint, ":")
+		sequence := fmt.Sprintf("%d", port)
 		err := serviceConfigClient.ClearConfig(sequence)
 		if err != nil {
-			return fmt.Errorf("serviceConfigClient ClearConfig err: %v, key: %v\n", err, serviceConfigClient.GetKeyName(application.Name, sequence))
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfigClient ClearConfig err: %v, key: %v\n", err, serviceConfigClient.GetKeyName(application.Name, sequence))
+			return fmt.Errorf("etcd clear service port exception")
 		}
 	}
 	if kelvins.GPool != nil {
@@ -298,4 +348,109 @@ func showAppVersion(app *kelvins.Application) {
 	fmt.Println("")
 	fmt.Println(remote)
 	fmt.Println("Go Go Go ==>", app.Name)
+}
+
+func appRegisterEventProducer(register func(event.ProducerIface) error, appType int32) {
+	server := kelvins.EventServerAliRocketMQ
+	if server == nil {
+		return
+	}
+	endPoint := server.GetEndpoint()
+	// should not rely on the behavior of the application code
+	producerFunc := func() {
+		err := register(server)
+		if err != nil {
+			// kelvins.BusinessLogger must not be nil
+			kelvins.BusinessLogger.Errorf(context.Background(), "App(type:%v).EventServer endpoint(%v) RegisterEventProducer publish err: %v", kelvins.AppTypeText[appType], endPoint, err)
+			return
+		}
+	}
+	if kelvins.GPool != nil {
+		ok := kelvins.GPool.SendJobWithTimeout(producerFunc, 1*time.Second)
+		if !ok {
+			go producerFunc()
+		}
+	} else {
+		go producerFunc()
+	}
+}
+
+func appRegisterEventHandler(register func(event.EventServerIface) error, appType int32) {
+	server := kelvins.EventServerAliRocketMQ
+	if server == nil {
+		return
+	}
+	endPoint := server.GetEndpoint()
+	// should not rely on the behavior of the application code
+	subscribeFunc := func() {
+		err := register(server)
+		if err != nil {
+			// kelvins.BusinessLogger must not be nil
+			kelvins.BusinessLogger.Errorf(context.Background(), "App(type:%v).EventServer endpoint(%v) RegisterEventHandler subscribe err: %v", kelvins.AppTypeText[appType], endPoint, err)
+			return
+		}
+		// start event server
+		err = server.Start()
+		if err != nil {
+			// kelvins.BusinessLogger must not be nil
+			kelvins.BusinessLogger.Errorf(context.Background(), "App(type:%v).EventServer endpoint(%v) Start consume err: %v", kelvins.AppTypeText[appType], endPoint, err)
+			return
+		}
+	}
+	if kelvins.GPool != nil {
+		ok := kelvins.GPool.SendJobWithTimeout(subscribeFunc, 1*time.Second)
+		if !ok {
+			go subscribeFunc()
+		}
+	} else {
+		go subscribeFunc()
+	}
+}
+
+func appRegisterServiceToEtcd(appName string, initialPort int64) (int64, error) {
+	var flagPort int64
+	if initialPort > 0 { // use self define port to start process
+		flagPort = initialPort
+	} else {
+		flagPort = int64(util.RandInt(50000, 60000))
+	}
+	currentPort := strconv.Itoa(int(flagPort))
+	etcdServerUrls := config.GetEtcdV3ServerURLs()
+	if etcdServerUrls == "" {
+		kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+		return flagPort, fmt.Errorf("etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+	}
+	serviceLB := slb.NewService(etcdServerUrls, appName)
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
+	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
+		kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig err: %v ,sequence(%v)", err, currentPort)
+		return flagPort, fmt.Errorf("etcd register service port(%v) exception", currentPort)
+	}
+	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
+		kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig sequence(%v) exist", currentPort)
+		return flagPort, fmt.Errorf("etcd register service port(%v) exist", currentPort)
+	}
+	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
+		ServiceVersion: kelvins.Version,
+		ServicePort:    currentPort,
+	})
+	if err != nil {
+		kelvins.ErrLogger.Errorf(context.TODO(), "etcd writeConfig err: %v，sequence(%v) ", err, currentPort)
+		err = fmt.Errorf("etcd register service port(%v) exception", currentPort)
+	}
+	return flagPort, err
+}
+
+var (
+	appInstanceOnce    int32
+	appInstanceOnceErr = errors.New("the same app type can only be registered once")
+)
+
+func appInstanceOnceValidate() error {
+	ok := atomic.CompareAndSwapInt32(&appInstanceOnce, 0, 1)
+	if !ok {
+		return appInstanceOnceErr
+	}
+	return nil
 }

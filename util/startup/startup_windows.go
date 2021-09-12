@@ -2,8 +2,8 @@ package startup
 
 import (
 	"gitee.com/kelvins-io/kelvins/internal/logging"
-	"syscall"
 	"runtime"
+	"syscall"
 )
 
 func execProcessCmd(pid int, upType startUpType) (next bool, err error) {
@@ -12,9 +12,9 @@ func execProcessCmd(pid int, upType startUpType) (next bool, err error) {
 	case startUpReStart:
 		logging.Infof("process platform(%s) not support restart\n", runtime.GOOS)
 	case startUpStop:
-		logging.Info("process stop...")
+		logging.Infof("process %d stop...\n", pid)
 		err = processControl(pid, syscall.SIGTERM)
-		logging.Info("process stop over")
+		logging.Infof("process %d stop over\n", pid)
 	default:
 		next = true
 	}

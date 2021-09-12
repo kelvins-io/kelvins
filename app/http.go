@@ -3,22 +3,25 @@ package app
 import (
 	"context"
 	"fmt"
-	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/kelvins"
-	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
-	"gitee.com/kelvins-io/kelvins/internal/service/slb"
-	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
-	"gitee.com/kelvins-io/kelvins/internal/setup"
-	"gitee.com/kelvins-io/kelvins/internal/util"
+	setupInternal "gitee.com/kelvins-io/kelvins/internal/setup"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"strconv"
 )
 
 func RunHTTPApplication(application *kelvins.HTTPApplication) {
+	// app instance once validate
+	{
+		err := appInstanceOnceValidate()
+		if err != nil {
+			logging.Fatal(err.Error())
+		}
+	}
+
 	application.Type = kelvins.AppTypeHttp
+	kelvins.HttpAppInstance = application
 
 	err := runHTTP(application)
 	if err != nil {
@@ -33,7 +36,7 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 			logging.Infof("HttpApp HttpServer Shutdown err: %v\n", err)
 		}
 	}
-	err = appShutdown(application.Application)
+	err = appShutdown(application.Application, application.Port)
 	if err != nil {
 		logging.Infof("HttpApp appShutdown err: %v\n", err)
 	}
@@ -59,103 +62,73 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	}
 
 	// 3. set init service port
-	var flagPort int64
-	if httpApp.Port > 0 { // use self define port to start process
-		flagPort = httpApp.Port
-	} else {
-		flagPort = int64(util.RandInt(50000, 60000))
-	}
-	currentPort := strconv.Itoa(int(flagPort))
-
-	// 4. get etcd service port
-	etcdServerUrls := config.GetEtcdV3ServerURLs()
-	if etcdServerUrls == "" {
-		return fmt.Errorf("can't not found env '%s' ", config.ENV_ETCDV3_SERVER_URLS)
-	}
-	serviceLB := slb.NewService(etcdServerUrls, httpApp.Name)
-	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
-	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
-	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
-		return fmt.Errorf("serviceConfig.GetConfig err: %v ,sequence(%v)", err, currentPort)
-	}
-	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
-		return fmt.Errorf("serviceConfig.GetConfig sequence(%v) exist", currentPort)
-	}
-	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
-		ServiceVersion: kelvins.Version,
-		ServicePort:    currentPort,
-	})
+	portEtcd, err := appRegisterServiceToEtcd(httpApp.Name, httpApp.Port)
 	if err != nil {
-		return fmt.Errorf("serviceConfig.WriteConfig err: %v", err)
+		return err
 	}
-	kelvins.ServerSetting.EndPoint = ":" + currentPort
+	httpApp.Port = portEtcd
 
-	// 5. register http
+	// 4. register http
 	var handler http.Handler
 	if httpApp.RegisterHttpGinEngine != nil {
 		var httpGinEng *gin.Engine
 		httpGinEng, err = httpApp.RegisterHttpGinEngine()
 		if err != nil {
-			return fmt.Errorf("httpApp.RegisterHttpGinEngine err: %v", err)
+			return fmt.Errorf("registerHttpGinEngine err: %v", err)
 		}
 		if httpGinEng != nil {
-			logging.Info("http handler selected [gin]")
+			logging.Info("httpApp http handler selected [gin]")
 			handler = httpGinEng
 		}
 	} else {
-		httpApp.Mux = setup.NewServerMux()
+		httpApp.Mux = setupInternal.NewServerMux()
 		if httpApp.RegisterHttpRoute != nil {
 			err = httpApp.RegisterHttpRoute(httpApp.Mux)
 			if err != nil {
-				return fmt.Errorf("httpApp.RegisterHttpRoute err: %v", err)
+				return fmt.Errorf("registerHttpRoute err: %v", err)
 			}
 		}
-		logging.Info("http handler selected [http.ServeMux]")
+		logging.Info("httpApp http handler selected [http.ServeMux]")
 		handler = httpApp.Mux
 	}
 	if handler == nil {
 		return fmt.Errorf("no http handler??? ")
 	}
 
-	httpApp.HttpServer = setup.NewHttpServer(
+	// 5. set http server
+	kelvins.ServerSetting.SetAddr(fmt.Sprintf(":%d", httpApp.Port))
+	httpApp.HttpServer = setupInternal.NewHttpServer(
 		handler,
 		httpApp.TlsConfig,
 		kelvins.ServerSetting,
 	)
 
-	// 6. register  event producer
-	if httpApp.EventServer != nil {
-		logging.Info("Start event server consume")
-		// subscribe event
+	// 6. register event producer
+	if kelvins.EventServerAliRocketMQ != nil {
+		logging.Info("httpApp start event server")
 		if httpApp.RegisterEventProducer != nil {
-			err := httpApp.RegisterEventProducer(httpApp.EventServer)
-			if err != nil {
-				return err
-			}
+			appRegisterEventProducer(httpApp.RegisterEventProducer, httpApp.Type)
 		}
-		// start event server
-		err = httpApp.EventServer.Start()
-		if err != nil {
-			return err
+		if httpApp.RegisterEventHandler != nil {
+			appRegisterEventHandler(httpApp.RegisterEventHandler, httpApp.Type)
 		}
-		logging.Info("Start event server")
 	}
 
 	// 7. start server
-	logging.Infof("Start http server listen %s\n", kelvins.ServerSetting.EndPoint)
 	network := "tcp"
 	if kelvins.ServerSetting.Network != "" {
 		network = kelvins.ServerSetting.Network
 	}
 	kp := new(kprocess.KProcess)
-	ln, err := kp.Listen(network, kelvins.ServerSetting.EndPoint, kelvins.PIDFile)
+	ln, err := kp.Listen(network, fmt.Sprintf(":%d", httpApp.Port), kelvins.PIDFile)
 	if err != nil {
-		return fmt.Errorf("KProcess Listen %s%s err: %v", network, kelvins.ServerSetting.EndPoint, err)
+		return fmt.Errorf("kprocess listen(%s:%d) pidFile(%v) err: %v", network, httpApp.Port, kelvins.PIDFile, err)
 	}
+	logging.Infof("httpApp server listen(%s:%d) \n", network, httpApp.Port)
 	go func() {
 		err = httpApp.HttpServer.Serve(ln)
 		if err != nil {
-			logging.Infof("HttpServer serve err: %v", err)
+			logging.Infof("httpApp HttpServer serve err: %v", err)
 		}
 	}()
 
@@ -165,25 +138,9 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 }
 
 func setupHTTPVars(httpApp *kelvins.HTTPApplication) error {
-	httpApp.TraceLogger = kelvins.AccessLogger
-
-	// init event server
-	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
-		// new event server
-		eventServer, err := event.NewEventServer(&event.Config{
-			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
-			RegionId:     kelvins.AliRocketMQSetting.RegionId,
-			AccessKey:    kelvins.AliRocketMQSetting.AccessKey,
-			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
-			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
-			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
-		}, kelvins.BusinessLogger)
-		if err != nil {
-			return err
-		}
-
-		httpApp.EventServer = eventServer
-		return nil
+	err := setupCommonQueue(nil)
+	if err != nil {
+		return err
 	}
 
 	return nil

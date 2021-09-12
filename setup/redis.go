@@ -35,7 +35,17 @@ func NewRedis(redisSetting *setting.RedisSettingS) (*redis.Pool, error) {
 		MaxActive:   maxActive,
 		IdleTimeout: time.Duration(idleTimeout) * time.Second,
 		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", redisSetting.Host)
+			var opts []redis.DialOption
+			if redisSetting.ConnectTimeout > 0 {
+				opts = append(opts, redis.DialConnectTimeout(time.Duration(redisSetting.ConnectTimeout)*time.Second))
+			}
+			if redisSetting.ReadTimeout > 0 {
+				opts = append(opts, redis.DialReadTimeout(time.Duration(redisSetting.ReadTimeout)*time.Second))
+			}
+			if redisSetting.WriteTimeout > 0 {
+				opts = append(opts, redis.DialWriteTimeout(time.Duration(redisSetting.WriteTimeout)*time.Second))
+			}
+			c, err := redis.Dial("tcp", redisSetting.Host, opts...)
 			if err != nil {
 				return nil, err
 			}

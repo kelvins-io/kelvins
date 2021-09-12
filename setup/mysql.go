@@ -54,6 +54,15 @@ func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 	buf.WriteString(mysqlSetting.Charset)
 	buf.WriteString("&parseTime=" + strconv.FormatBool(mysqlSetting.ParseTime))
 	buf.WriteString("&multiStatements=" + strconv.FormatBool(mysqlSetting.MultiStatements))
+	if mysqlSetting.ConnectionTimeout != "" {
+		buf.WriteString(fmt.Sprintf("&timeout=%v", mysqlSetting.ConnectionTimeout))
+	}
+	if mysqlSetting.WriteTimeout != "" {
+		buf.WriteString(fmt.Sprintf("&writeTimeout=%v", mysqlSetting.WriteTimeout))
+	}
+	if mysqlSetting.ReadTimeout != "" {
+		buf.WriteString(fmt.Sprintf("&readTimeout=%v", mysqlSetting.ReadTimeout))
+	}
 	if mysqlSetting.Loc == "" {
 		buf.WriteString("&loc=Local")
 	} else {
@@ -161,6 +170,15 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 	buf.WriteString(mysqlSetting.Charset)
 	buf.WriteString("&parseTime=" + strconv.FormatBool(mysqlSetting.ParseTime))
 	buf.WriteString("&multiStatements=" + strconv.FormatBool(mysqlSetting.MultiStatements))
+	if mysqlSetting.ConnectionTimeout != "" {
+		buf.WriteString(fmt.Sprintf("&timeout=%v", mysqlSetting.ConnectionTimeout))
+	}
+	if mysqlSetting.WriteTimeout != "" {
+		buf.WriteString(fmt.Sprintf("&writeTimeout=%v", mysqlSetting.WriteTimeout))
+	}
+	if mysqlSetting.ReadTimeout != "" {
+		buf.WriteString(fmt.Sprintf("&readTimeout=%v", mysqlSetting.ReadTimeout))
+	}
 	if mysqlSetting.Loc == "" {
 		buf.WriteString("&loc=Local")
 	} else {

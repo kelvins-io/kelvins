@@ -23,7 +23,7 @@ const (
 	SectionMongoDB = "kelvins-mongodb"
 	// SectionQueueRedis is a section name for redis queue
 	SectionQueueRedis = "kelvins-queue-redis"
-	// SectionQueueAliAMQP is a section name for aliamqp
+	// SectionQueueAliAMQP is a section name for ali amqp
 	SectionQueueAliAMQP = "kelvins-queue-ali-amqp"
 	// SectionQueueAMQP is a section name for amqp
 	SectionQueueAMQP = "kelvins-queue-amqp"

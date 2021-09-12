@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -15,7 +14,7 @@ func NewEtcd(urls string) (client.Client, error) {
 		HeaderTimeoutPerRequest: 10 * time.Second,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("client.New err: %v", err)
+		return nil, err
 	}
 
 	return cli, nil

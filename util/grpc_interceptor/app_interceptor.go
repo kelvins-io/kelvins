@@ -27,6 +27,16 @@ func (i *AppInterceptor) AppGRPC(ctx context.Context, req interface{}, info *grp
 	return handler(newCtx, req)
 }
 
+// AppGRPCStream 是否有存在的意义
+// AppGRPCStream is experimental function
+func (i *AppInterceptor) AppGRPCStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	wrapper := &grpcStreamWrapper{
+		i:  i,
+		ss: ss,
+	}
+	return handler(srv, wrapper)
+}
+
 // LoggingGRPC loggingGRPC logs GRPC request.
 func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	resp, err := handler(ctx, req)
@@ -34,7 +44,7 @@ func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info 
 	if err != nil {
 		i.App.GSysErrLogger.Errorf(
 			ctx,
-			"access response err：%s, grpc method: %s, req: %s, response：%s, details: %s",
+			"grpc access response err：%s, grpc method: %s, req: %s, response：%s, details: %s",
 			s.Err().Error(),
 			info.FullMethod,
 			json.MarshalToStringNoError(req),
@@ -44,7 +54,7 @@ func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info 
 	} else if kelvins.ServerSetting.IsRecordCallResponse == true {
 		i.App.GKelvinsLogger.Infof(
 			ctx,
-			"access response ok, grpc method: %s, req: %s, response: %s",
+			"grpc access response ok, grpc method: %s, req: %s, response: %s",
 			info.FullMethod,
 			json.MarshalToStringNoError(req),
 			json.MarshalToStringNoError(resp),
@@ -59,9 +69,57 @@ func (i *AppInterceptor) RecoveryGRPC(ctx context.Context, req interface{}, info
 	defer func() {
 		if e := recover(); e != nil {
 			debug.PrintStack()
-			i.App.GSysErrLogger.Errorf(ctx, "app panic err: %v, grpc method: %s，req: %s, stack: %s", e, info.FullMethod, json.MarshalToStringNoError(req), string(debug.Stack()[:]))
+			i.App.GSysErrLogger.Errorf(ctx, "grpc panic err: %v, grpc method: %s，req: %s, stack: %s", e, info.FullMethod, json.MarshalToStringNoError(req), string(debug.Stack()[:]))
 		}
 	}()
 
 	return handler(ctx, req)
+}
+
+// RecoveryGRPCStream is experimental function
+func (i *AppInterceptor) RecoveryGRPCStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	defer func() {
+		if e := recover(); e != nil {
+			debug.PrintStack()
+			i.App.GSysErrLogger.Errorf(ss.Context(), "grpc stream panic err: %v, grpc method: %s, stack: %s", e, info.FullMethod, string(debug.Stack()[:]))
+		}
+	}()
+
+	return handler(srv, ss)
+}
+
+// grpcStreamWrapper 是否有存在的意义
+type grpcStreamWrapper struct {
+	i  *AppInterceptor
+	ss grpc.ServerStream
+}
+
+func (s *grpcStreamWrapper) SetHeader(md metadata.MD) error {
+	return s.ss.SetHeader(md)
+}
+
+func (s *grpcStreamWrapper) SendHeader(md metadata.MD) error {
+	return s.ss.SendHeader(md)
+}
+
+func (s *grpcStreamWrapper) SetTrailer(md metadata.MD) {
+	s.ss.SetTrailer(md)
+}
+
+func (s *grpcStreamWrapper) SendMsg(m interface{}) error {
+	return s.ss.SendMsg(m)
+}
+
+func (s *grpcStreamWrapper) RecvMsg(m interface{}) error {
+	return s.ss.RecvMsg(m)
+}
+
+func (s *grpcStreamWrapper) Context() context.Context {
+	ctx := s.ss.Context()
+	md, _ := metadata.FromIncomingContext(ctx)
+	md.Append("kelvins-service-name", s.i.App.Name)
+	md.Append("kelvins-service-type", strconv.Itoa(int(s.i.App.Type)))
+	md.Append("kelvins-service-version", vars.Version)
+	newCtx := metadata.NewIncomingContext(ctx, md)
+	return newCtx
 }
