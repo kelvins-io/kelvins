@@ -3,15 +3,26 @@ package app
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"time"
+
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	setupInternal "gitee.com/kelvins-io/kelvins/internal/setup"
+	"gitee.com/kelvins-io/kelvins/util/gin_helper"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"net/http"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func RunHTTPApplication(application *kelvins.HTTPApplication) {
+	if application == nil || application.Application == nil {
+		panic("httpApplication is nil or application is nil")
+	}
 	// app instance once validate
 	{
 		err := appInstanceOnceValidate()
@@ -70,18 +81,34 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 
 	// 4. register http
 	var handler http.Handler
-	if httpApp.RegisterHttpGinEngine != nil {
-		var httpGinEng *gin.Engine
-		httpGinEng, err = httpApp.RegisterHttpGinEngine()
-		if err != nil {
-			return fmt.Errorf("registerHttpGinEngine err: %v", err)
+	isMonitor := false
+	if kelvins.ServerSetting != nil {
+		switch kelvins.ServerSetting.Environment {
+		case config.DefaultEnvironmentDev:
+			isMonitor = true
+		case config.DefaultEnvironmentTest:
+			isMonitor = true
+		default:
 		}
-		if httpGinEng != nil {
-			logging.Info("httpApp http handler selected [gin]")
-			handler = httpGinEng
+	}
+	if httpApp.RegisterHttpGinRoute != nil {
+		logging.Info("httpApp http handler selected [gin]")
+		ginEngineInit()
+		var httpGinEng = gin.Default()
+		handler = httpGinEng
+		httpGinEng.Use(gin_helper.Cors())
+		if isMonitor {
+			pprof.Register(httpGinEng, "/debug")
+			httpGinEng.GET("/debug/metrics", ginMetricsApi)
 		}
+		httpGinEng.GET("/", ginIndexApi)
+		httpGinEng.GET("/ping", ginPingApi)
+		httpApp.RegisterHttpGinRoute(httpGinEng)
 	} else {
-		httpApp.Mux = setupInternal.NewServerMux()
+		httpApp.Mux = setupInternal.NewServerMux(isMonitor)
+		handler = httpApp.Mux
+		httpApp.Mux.HandleFunc("/", indexApi)
+		httpApp.Mux.HandleFunc("/ping", pingApi)
 		if httpApp.RegisterHttpRoute != nil {
 			err = httpApp.RegisterHttpRoute(httpApp.Mux)
 			if err != nil {
@@ -89,7 +116,6 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 			}
 		}
 		logging.Info("httpApp http handler selected [http.ServeMux]")
-		handler = httpApp.Mux
 	}
 	if handler == nil {
 		return fmt.Errorf("no http handler??? ")
@@ -144,4 +170,74 @@ func setupHTTPVars(httpApp *kelvins.HTTPApplication) error {
 	}
 
 	return nil
+}
+
+func ginEngineInit() {
+	var accessLogWriter io.Writer = &accessInfoLogger{}
+	var errLogWriter io.Writer = &accessErrLogger{}
+	if kelvins.ServerSetting != nil {
+		environ := kelvins.ServerSetting.Environment
+		if environ == config.DefaultEnvironmentDev || environ == config.DefaultEnvironmentTest {
+			if environ == config.DefaultEnvironmentDev {
+				accessLogWriter = io.MultiWriter(accessLogWriter, os.Stdout)
+				errLogWriter = io.MultiWriter(errLogWriter, os.Stdout)
+			}
+			gin.DefaultWriter = accessLogWriter
+		}
+	}
+	gin.DefaultErrorWriter = errLogWriter
+
+	gin.SetMode(gin.ReleaseMode) // 默认生产
+	if kelvins.ServerSetting != nil {
+		switch kelvins.ServerSetting.Environment {
+		case config.DefaultEnvironmentDev:
+			gin.SetMode(gin.DebugMode)
+		case config.DefaultEnvironmentTest:
+			gin.SetMode(gin.TestMode)
+		case config.DefaultEnvironmentRelease, config.DefaultEnvironmentProd:
+			gin.SetMode(gin.ReleaseMode)
+		default:
+			gin.SetMode(gin.ReleaseMode)
+		}
+	}
+}
+
+type accessInfoLogger struct{}
+
+func (a *accessInfoLogger) Write(p []byte) (n int, err error) {
+	if kelvins.AccessLogger != nil {
+		kelvins.AccessLogger.Infof(context.Background(), "[gin-info] %s", p)
+	}
+	return 0, nil
+}
+
+type accessErrLogger struct{}
+
+func (a *accessErrLogger) Write(p []byte) (n int, err error) {
+	if kelvins.AccessLogger != nil {
+		kelvins.AccessLogger.Errorf(context.Background(), "[gin-err] %s", p)
+	}
+	return 0, nil
+}
+
+func indexApi(writer http.ResponseWriter, request *http.Request) {
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte("Welcome to " + kelvins.AppName))
+}
+
+func pingApi(writer http.ResponseWriter, request *http.Request) {
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte(time.Now().Format("2006-01-02 15:04:05")))
+}
+
+func ginMetricsApi(c *gin.Context) {
+	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
+}
+
+func ginIndexApi(c *gin.Context) {
+	gin_helper.JsonResponse(c, http.StatusOK, gin_helper.SUCCESS, "Welcome to "+kelvins.AppName)
+}
+
+func ginPingApi(c *gin.Context) {
+	gin_helper.JsonResponse(c, http.StatusOK, gin_helper.SUCCESS, time.Now().Format("2006-01-02 15:04:05"))
 }

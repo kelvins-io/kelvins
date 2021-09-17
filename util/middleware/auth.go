@@ -43,7 +43,9 @@ func (i *AuthInterceptor) checkFunc(conf *setting.RPCAuthSettingS) func(ctx cont
 
 		authInfo, err := checkToken(ctx, conf.Token, time.Now())
 		if err != nil {
-			i.App.GSysErrLogger.Errorf(ctx, "AuthInterceptor checkFunc %v err %v", authInfo, err)
+			if i.App != nil && i.App.GSysErrLogger != nil {
+				i.App.GSysErrLogger.Errorf(ctx, "AuthInterceptor checkFunc %v err %v", authInfo, err)
+			}
 		}
 
 		switch status.Code(err) {

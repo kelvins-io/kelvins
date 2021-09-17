@@ -4,14 +4,13 @@ import "time"
 
 // ServerSettingS defines for grpc server.
 type ServerSettingS struct {
-	Network              string
-	IsRecordCallResponse bool
-	PIDFile              string
-	Environment          string
-	ReadTimeout          int
-	WriteTimeout         int
-	IdleTimeout          int
-	addr                 string
+	Network      string
+	PIDFile      string
+	Environment  string
+	ReadTimeout  int
+	WriteTimeout int
+	IdleTimeout  int
+	addr         string
 }
 
 func (s *ServerSettingS) GetReadTimeout() time.Duration {
@@ -32,6 +31,11 @@ func (s *ServerSettingS) SetAddr(addr string) {
 
 func (s *ServerSettingS) GetAddr() string {
 	return s.addr
+}
+
+type JwtSettingS struct {
+	Secret            string
+	TokenExpireSecond int
 }
 
 type RPCServerParamsS struct {

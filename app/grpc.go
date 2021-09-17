@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	setupInternal "gitee.com/kelvins-io/kelvins/internal/setup"
 	"gitee.com/kelvins-io/kelvins/util/client_conn"
@@ -21,6 +22,9 @@ import (
 
 // RunGRPCApplication runs grpc application.
 func RunGRPCApplication(application *kelvins.GRPCApplication) {
+	if application == nil || application.Application == nil {
+		panic("grpcApplication is nil or application is nil")
+	}
 	// app instance once validate
 	{
 		err := appInstanceOnceValidate()
@@ -294,7 +298,18 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		}
 	}
 	grpcApp.GatewayServeMux = setupInternal.NewGateway()
-	grpcApp.Mux = setupInternal.NewGatewayServerMux(grpcApp.GatewayServeMux)
+
+	isMonitor := false
+	if kelvins.ServerSetting != nil {
+		switch kelvins.ServerSetting.Environment {
+		case config.DefaultEnvironmentDev:
+			isMonitor = true
+		case config.DefaultEnvironmentTest:
+			isMonitor = true
+		default:
+		}
+	}
+	grpcApp.Mux = setupInternal.NewGatewayServerMux(grpcApp.GatewayServeMux, isMonitor)
 	kelvins.ServerSetting.SetAddr(fmt.Sprintf(":%d", grpcApp.Port))
 	grpcApp.HttpServer = setupInternal.NewHttpServer(
 		setupInternal.GRPCHandlerFunc(grpcApp.GRPCServer, grpcApp.Mux, kelvins.ServerSetting),

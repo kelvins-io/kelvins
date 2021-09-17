@@ -41,10 +41,13 @@ var LoggerSetting *setting.LoggerSettingS
 // ServerSetting is maps config section "kelvins-server" May be nil
 var ServerSetting *setting.ServerSettingS
 
+// JwtSetting is maps config section "kelvins-jwt" may be nil
+var JwtSetting *setting.JwtSettingS
+
 // RPCServerParamsSetting is maps config section "kelvins-rpc-server" May be nil
 var RPCServerParamsSetting *setting.RPCServerParamsS
 
-// RPCAuthSetting is maps config section "kelvins-auth" May be nil
+// RPCAuthSetting is maps config section "kelvins-rpc-auth" May be nil
 var RPCAuthSetting *setting.RPCAuthSettingS
 
 // RPCServerKeepaliveParamsSetting is maps config section "kelvins-rpc-server-kp" May be nil

@@ -110,7 +110,7 @@ type HTTPApplication struct {
 	Mux                   *http.ServeMux
 	HttpServer            *http.Server
 	RegisterHttpRoute     func(*http.ServeMux) error
-	RegisterHttpGinEngine func() (*gin.Engine, error) // is not nil will over RegisterHttpRoute
+	RegisterHttpGinRoute  func(*gin.Engine) // is not nil will over RegisterHttpGinRoute
 	RegisterEventProducer func(event.ProducerIface) error
 	RegisterEventHandler  func(event.EventServerIface) error
 }

@@ -74,15 +74,18 @@ func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	logger, _ := log.GetCustomLogger("db-log", "gorm")
-	gormLogger := &gormLogger{
-		logger: logger,
-	}
-	if mysqlSetting.Environment == config.DefaultEnvironmentDev {
+	environ := mysqlSetting.Environment
+	if environ == config.DefaultEnvironmentDev || environ == config.DefaultEnvironmentTest {
+		logger, _ := log.GetCustomLogger("db-log", "gorm")
+		gormLogger := &gormLogger{
+			logger: logger,
+		}
 		db.LogMode(true)
-		gormLogger.out = os.Stdout
+		if environ == config.DefaultEnvironmentDev {
+			gormLogger.out = os.Stdout
+		}
+		db.SetLogger(gormLogger)
 	}
-	db.SetLogger(gormLogger)
 
 	db.DB().SetConnMaxLifetime(3600 * time.Second)
 	if mysqlSetting.ConnMaxLifeSecond > 0 {
@@ -190,18 +193,18 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 		return nil, err
 	}
 
-	logger, _ := log.GetCustomLogger("db-log", "xorm")
-	xormlogger := &xormLogger{
-		logger: logger,
-	}
-	engine.SetLogLevel(xormLogLevel[mysqlSetting.LoggerLevel])
-	var writer io.Writer
-	writer = xormlogger
-	if mysqlSetting.Environment == config.DefaultEnvironmentDev {
-		writer = io.MultiWriter(writer, os.Stdout)
-	}
-	engine.SetLogger(xormLog.NewSimpleLogger(writer))
-	if mysqlSetting.Environment == config.DefaultEnvironmentDev {
+	environ := mysqlSetting.Environment
+	if environ == config.DefaultEnvironmentDev || environ == config.DefaultEnvironmentTest {
+		var writer io.Writer
+		logger, _ := log.GetCustomLogger("db-log", "xorm")
+		writer = &xormLogger{
+			logger: logger,
+		}
+		engine.SetLogLevel(xormLogLevel[mysqlSetting.LoggerLevel])
+		if environ == config.DefaultEnvironmentDev {
+			writer = io.MultiWriter(writer, os.Stdout)
+		}
+		engine.SetLogger(xormLog.NewSimpleLogger(writer))
 		engine.ShowSQL(true)
 	}
 

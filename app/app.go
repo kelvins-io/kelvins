@@ -207,6 +207,16 @@ func setupCommonVars(application *kelvins.Application) error {
 	// init event server
 	if kelvins.AliRocketMQSetting != nil && kelvins.AliRocketMQSetting.InstanceId != "" {
 		// new event server
+		var queueLogger log.LoggerContextIface
+		if kelvins.ServerSetting != nil {
+			switch kelvins.ServerSetting.Environment {
+			case config.DefaultEnvironmentDev:
+				queueLogger = kelvins.BusinessLogger
+			case config.DefaultEnvironmentTest:
+				queueLogger = kelvins.BusinessLogger
+			default:
+			}
+		}
 		eventServer, err := event.NewEventServer(&event.Config{
 			BusinessName: kelvins.AliRocketMQSetting.BusinessName,
 			RegionId:     kelvins.AliRocketMQSetting.RegionId,
@@ -214,7 +224,7 @@ func setupCommonVars(application *kelvins.Application) error {
 			SecretKey:    kelvins.AliRocketMQSetting.SecretKey,
 			InstanceId:   kelvins.AliRocketMQSetting.InstanceId,
 			HttpEndpoint: kelvins.AliRocketMQSetting.HttpEndpoint,
-		}, kelvins.BusinessLogger)
+		}, queueLogger)
 		if err != nil {
 			return err
 		}
@@ -271,7 +281,9 @@ func appShutdown(application *kelvins.Application, port int64) error {
 	if application.Type == kelvins.AppTypeHttp || application.Type == kelvins.AppTypeGrpc {
 		etcdServerUrls := config.GetEtcdV3ServerURLs()
 		if etcdServerUrls == "" {
-			kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+			if kelvins.ErrLogger != nil {
+				kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+			}
 			return fmt.Errorf("etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
 		}
 		serviceLB := slb.NewService(etcdServerUrls, application.Name)
@@ -279,7 +291,10 @@ func appShutdown(application *kelvins.Application, port int64) error {
 		sequence := fmt.Sprintf("%d", port)
 		err := serviceConfigClient.ClearConfig(sequence)
 		if err != nil {
-			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfigClient ClearConfig err: %v, key: %v\n", err, serviceConfigClient.GetKeyName(application.Name, sequence))
+			if kelvins.ErrLogger != nil {
+				kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfigClient ClearConfig err: %v, key: %v",
+					err, serviceConfigClient.GetKeyName(application.Name, sequence))
+			}
 			return fmt.Errorf("etcd clear service port exception")
 		}
 	}
@@ -361,7 +376,10 @@ func appRegisterEventProducer(register func(event.ProducerIface) error, appType 
 		err := register(server)
 		if err != nil {
 			// kelvins.BusinessLogger must not be nil
-			kelvins.BusinessLogger.Errorf(context.Background(), "App(type:%v).EventServer endpoint(%v) RegisterEventProducer publish err: %v", kelvins.AppTypeText[appType], endPoint, err)
+			if kelvins.BusinessLogger != nil {
+				kelvins.BusinessLogger.Errorf(context.Background(), "App(type:%v).EventServer endpoint(%v) RegisterEventProducer publish err: %v",
+					kelvins.AppTypeText[appType], endPoint, err)
+			}
 			return
 		}
 	}
@@ -386,14 +404,20 @@ func appRegisterEventHandler(register func(event.EventServerIface) error, appTyp
 		err := register(server)
 		if err != nil {
 			// kelvins.BusinessLogger must not be nil
-			kelvins.BusinessLogger.Errorf(context.Background(), "App(type:%v).EventServer endpoint(%v) RegisterEventHandler subscribe err: %v", kelvins.AppTypeText[appType], endPoint, err)
+			if kelvins.BusinessLogger != nil {
+				kelvins.BusinessLogger.Errorf(context.Background(), "App(type:%v).EventServer endpoint(%v) RegisterEventHandler subscribe err: %v",
+					kelvins.AppTypeText[appType], endPoint, err)
+			}
 			return
 		}
 		// start event server
 		err = server.Start()
 		if err != nil {
 			// kelvins.BusinessLogger must not be nil
-			kelvins.BusinessLogger.Errorf(context.Background(), "App(type:%v).EventServer endpoint(%v) Start consume err: %v", kelvins.AppTypeText[appType], endPoint, err)
+			if kelvins.BusinessLogger != nil {
+				kelvins.BusinessLogger.Errorf(context.Background(), "App(type:%v).EventServer endpoint(%v) Start consume err: %v",
+					kelvins.AppTypeText[appType], endPoint, err)
+			}
 			return
 		}
 	}
@@ -417,18 +441,24 @@ func appRegisterServiceToEtcd(appName string, initialPort int64) (int64, error) 
 	currentPort := strconv.Itoa(int(flagPort))
 	etcdServerUrls := config.GetEtcdV3ServerURLs()
 	if etcdServerUrls == "" {
-		kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+		if kelvins.ErrLogger != nil {
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+		}
 		return flagPort, fmt.Errorf("etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
 	}
 	serviceLB := slb.NewService(etcdServerUrls, appName)
 	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
 	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
 	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
-		kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig err: %v ,sequence(%v)", err, currentPort)
+		if kelvins.ErrLogger != nil {
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig err: %v ,sequence(%v)", err, currentPort)
+		}
 		return flagPort, fmt.Errorf("etcd register service port(%v) exception", currentPort)
 	}
 	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
-		kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig sequence(%v) exist", currentPort)
+		if kelvins.ErrLogger != nil {
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig sequence(%v) exist", currentPort)
+		}
 		return flagPort, fmt.Errorf("etcd register service port(%v) exist", currentPort)
 	}
 	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
@@ -436,7 +466,9 @@ func appRegisterServiceToEtcd(appName string, initialPort int64) (int64, error) 
 		ServicePort:    currentPort,
 	})
 	if err != nil {
-		kelvins.ErrLogger.Errorf(context.TODO(), "etcd writeConfig err: %v，sequence(%v) ", err, currentPort)
+		if kelvins.ErrLogger != nil {
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd writeConfig err: %v，sequence(%v) ", err, currentPort)
+		}
 		err = fmt.Errorf("etcd register service port(%v) exception", currentPort)
 	}
 	return flagPort, err

@@ -33,8 +33,12 @@ const (
 	SectionQueueServer = "kelvins-queue-server"
 	// SectionGPool is goroutine pool
 	SectionGPool = "kelvins-gpool"
-	// SectionAuth is rpc auth
+	// SectionJwt is jwt
+	SectionJwt = "kelvins-jwt"
+	// SectionAuth is rpc auth ,just for compatibility, it will be deleted in the future
 	SectionAuth = "kelvins-auth"
+	// SectionRPCAuth is rpc auth
+	SectionRPCAuth = "kelvins-rpc-auth"
 	// SectionRPCServerParams is server rpc params
 	SectionRPCServerParams = "kelvins-rpc-server"
 	// SectionRPCServerKeepaliveParams is server rpc keep alive params
@@ -75,7 +79,12 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 			MapConfig(sectionName, kelvins.ServerSetting)
 			continue
 		}
-		if sectionName == SectionAuth {
+		if sectionName == SectionJwt {
+			kelvins.JwtSetting = new(setting.JwtSettingS)
+			MapConfig(sectionName, kelvins.JwtSetting)
+			continue
+		}
+		if sectionName == SectionRPCAuth || sectionName == SectionAuth {
 			kelvins.RPCAuthSetting = new(setting.RPCAuthSettingS)
 			MapConfig(sectionName, kelvins.RPCAuthSetting)
 			continue

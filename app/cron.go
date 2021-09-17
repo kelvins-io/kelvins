@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
 	"github.com/google/uuid"
@@ -14,6 +15,9 @@ import (
 
 // RunCronApplication runs cron application.
 func RunCronApplication(application *kelvins.CronApplication) {
+	if application == nil || application.Application == nil {
+		panic("cronApplication is nil or application is nil")
+	}
 	// app instance once validate
 	{
 		err := appInstanceOnceValidate()
@@ -92,9 +96,19 @@ func runCron(cronApp *kelvins.CronApplication) error {
 				}
 				jobNameDict[j.Name] = 1
 				job := &cronJob{
-					logger: kelvins.BusinessLogger,
-					name:   j.Name,
+					name: j.Name,
 				}
+				var logger log.LoggerContextIface
+				if kelvins.ServerSetting != nil {
+					switch kelvins.ServerSetting.Environment {
+					case config.DefaultEnvironmentDev:
+						logger = kelvins.BusinessLogger
+					case config.DefaultEnvironmentTest:
+						logger = kelvins.BusinessLogger
+					default:
+					}
+				}
+				job.logger = logger
 				_, err = cronApp.Cron.AddFunc(j.Spec, job.warpJob(j.Job))
 				if err != nil {
 					return fmt.Errorf("addFunc err: %v", err)
@@ -142,15 +156,25 @@ func (c *cronJob) warpJob(job func()) func() {
 	return func() {
 		defer func() {
 			if r := recover(); r != nil {
-				c.logger.Errorf(cronJobCtx, "Name: %s Recover err: %v", c.name, r)
+				if c.logger != nil {
+					c.logger.Errorf(cronJobCtx, "cron Job name: %s recover err: %v", c.name, r)
+				} else {
+					logging.Infof("cron Job name: %s recover err: %v\n", c.name, r)
+				}
 			}
 		}()
 		UUID := uuid.New()
 		startTime := time.Now()
-		c.logger.Infof(cronJobCtx, "Name: %s Uuid: %s StartTime: %s", c.name, UUID, startTime.Format("2006-01-02 15:04:05.000"))
+		if c.logger != nil {
+			c.logger.Infof(cronJobCtx, "Name: %s Uuid: %s StartTime: %s",
+				c.name, UUID, startTime.Format("2006-01-02 15:04:05.000"))
+		}
 		job()
 		endTime := time.Now()
 		duration := endTime.Sub(startTime)
-		c.logger.Infof(cronJobCtx, "Name: %s Uuid: %s EndTime: %s Duration: %fs", c.name, UUID, endTime.Format("2006-01-02 15:04:05.000"), duration.Seconds())
+		if c.logger != nil {
+			c.logger.Infof(cronJobCtx, "Name: %s Uuid: %s EndTime: %s Duration: %fs",
+				c.name, UUID, endTime.Format("2006-01-02 15:04:05.000"), duration.Seconds())
+		}
 	}
 }

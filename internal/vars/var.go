@@ -3,7 +3,7 @@ package vars
 import "gitee.com/kelvins-io/common/log"
 
 // Version this vars fork root path vars.go
-var Version = "1.5.0"
+var Version = "1.5.x"
 
 // FrameworkLogger is a global var for Framework log
 var FrameworkLogger log.LoggerContextIface

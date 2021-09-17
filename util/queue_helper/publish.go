@@ -7,6 +7,7 @@ import (
 	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/common/queue"
+	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"github.com/RichardKnop/machinery/v1/tasks"
 )
 
@@ -18,14 +19,17 @@ type PublishService struct {
 
 type PushMsgTag struct {
 	DeliveryTag    string // consume func name
-	DeliveryErrTag string // consume func name
+	DeliveryErrTag string // consume err func name
 	RetryCount     int    // default 3 cycle
 	RetryTimeout   int    // default 10s
 }
 
 func NewPublishService(server *queue.MachineryQueue, tag *PushMsgTag, logger log.LoggerContextIface) (*PublishService, error) {
-	if logger == nil {
-		return nil, fmt.Errorf("logger empty !!! ")
+	if server == nil {
+		return nil, fmt.Errorf("server nil !!! ")
+	}
+	if tag == nil {
+		return nil, fmt.Errorf("tag nil !!! ")
 	}
 	if tag.DeliveryTag == "" {
 		return nil, fmt.Errorf("tag.DeliveryTag empty !!! ")
@@ -76,7 +80,11 @@ func (p *PublishService) buildQueueData(ctx context.Context, args interface{}) (
 		})
 
 	if err != nil {
-		p.logger.Errorf(ctx, "queue_helper buildQueueData err: %v, taskSign: %v", err, json.MarshalToStringNoError(sign))
+		if p.logger != nil {
+			p.logger.Errorf(ctx, "queue_helper buildQueueData err: %v, taskSign: %v", err, json.MarshalToStringNoError(sign))
+		} else {
+			logging.Errf("queue_helper buildQueueData err: %v, taskSign: %v\n", err, json.MarshalToStringNoError(sign))
+		}
 		return nil, errcode.FAIL
 	}
 
@@ -111,7 +119,11 @@ func (p *PublishService) sendTaskToQueue(ctx context.Context, taskSign *tasks.Si
 
 	result, err := p.server.TaskServer.SendTaskWithContext(ctx, taskSign)
 	if err != nil {
-		p.logger.Errorf(ctx, "queue_helper sendTaskToQueue err:%v, data:%v", err, json.MarshalToStringNoError(taskSign))
+		if p.logger != nil {
+			p.logger.Errorf(ctx, "queue_helper sendTaskToQueue err:%v, data:%v", err, json.MarshalToStringNoError(taskSign))
+		} else {
+			logging.Errf("queue_helper sendTaskToQueue err:%v, data:%v\n", err, json.MarshalToStringNoError(taskSign))
+		}
 		return "", errcode.FAIL
 	}
 

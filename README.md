@@ -68,7 +68,6 @@ kelvins-server
 Environment可选值：dev，test，release，prod   
 ```ini
 [kelvins-server]
-IsRecordCallResponse = true
 Network = "tcp"
 Environment = "dev"
 PIDFile = "./kelvins-app.pid"
@@ -211,10 +210,25 @@ WorkerNum = 10
 JobChanLen = 1000
 ```
 
+kelvins-jwt   
+gin中间件   
+```ini
+[kelvins-jwt]
+Secret = "私钥"
+TokenExpireSecond = 3600
+```
+
 kelvins-auth   
-RPC接入授权，不配置或者token为空表示不开启auth
+RPC接入授权，不配置或者token为空表示不开启auth   
+保留配置（兼容1.5.8（含）以下版本配置，未来会删除）：   
 ```ini
 [kelvins-auth]
+Token = "abc1234"
+TransportSecurity = false
+```
+推荐使用如下配置：   
+```ini
+[kelvins-rpc-auth]
 Token = "abc1234"
 TransportSecurity = false
 ```
@@ -346,6 +360,7 @@ grpc-health-probe -addr=127.0.0.1:58688 -service=""
 2021-8-14 | RPC-ghz压测试工具 | https://gitee.com/cristiane | 支持对RPC应用进行压力测试并输出报告
 2021-9-1 | 若干更新 | https://gitee.com/cristiane | rpc日志对齐&rpc server参数配置化&启动优化
 2021-9-11 | 若干更新 | https://gitee.com/cristiane | client_service,print,queue等若干优化
+2021-9-18 | 运行环境优化，http优化 | https://gitee.com/cristiane | 根据运行环境日志打印
 
 ### 业务应用
 micro-mall-api系列共计16+个服务：https://gitee.com/cristiane/micro-mall-api

@@ -14,9 +14,9 @@ import (
 )
 
 type GRPCErrReturn struct {
-	ErrCode   int32  `json:"code,omitempty"`   // 错误码
-	ErrMsg    string `json:"error,omitempty"`  // 错误消息
-	ErrDetail string `json:"detail,omitempty"` // 错误详情
+	ErrCode   int32  `json:"code,omitempty"`
+	ErrMsg    string `json:"error,omitempty"`
+	ErrDetail string `json:"detail,omitempty"`
 }
 
 // NewGateway ...

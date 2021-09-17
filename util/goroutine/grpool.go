@@ -39,9 +39,11 @@ func runJob(f func()) {
 	defer func() {
 		if err := recover(); err != nil {
 			if vars.FrameworkLogger != nil {
-				vars.FrameworkLogger.Error(context.Background(), "[gPool] runJob panic err %v, stack: %v", err, string(debug.Stack()[:]))
+				vars.FrameworkLogger.Error(context.Background(), "[gPool] runJob panic err %v, stack: %v",
+					err, string(debug.Stack()[:]))
 			} else {
-				logging.Errf("[gPool] runJob panic err %v, stack: %v\n", err, string(debug.Stack()[:]))
+				logging.Errf("[gPool] runJob panic err %v, stack: %v\n",
+					err, string(debug.Stack()[:]))
 			}
 		}
 	}()
@@ -114,6 +116,12 @@ type Pool struct {
 //
 // Returned object contains JobQueue reference, which you can use to send job to pool.
 func NewPool(numWorkers int, jobQueueLen int) *Pool {
+	if numWorkers <= 0 {
+		numWorkers = 2
+	}
+	if jobQueueLen <= 0 {
+		jobQueueLen = 5
+	}
 	jobQueue := make(chan Job, jobQueueLen)
 	workerPool := make(chan *worker, numWorkers)
 

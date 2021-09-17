@@ -8,6 +8,7 @@ import (
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/common/queue"
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
 	"github.com/RichardKnop/machinery/v1"
@@ -17,6 +18,9 @@ import (
 
 // RunQueueApplication runs queue application.
 func RunQueueApplication(application *kelvins.QueueApplication) {
+	if application == nil || application.Application == nil {
+		panic("queueApplication is nil or application is nil")
+	}
 	// app instance once validate
 	{
 		err := appInstanceOnceValidate()
@@ -147,9 +151,21 @@ func runQueue(queueApp *kelvins.QueueApplication) error {
 
 // setupQueueVars ...
 func setupQueueVars(queueApp *kelvins.QueueApplication) error {
-	queueLog.Set(&queueLogger{
-		logger: kelvins.AccessLogger,
-	})
+	var logger log.LoggerContextIface
+	if kelvins.ServerSetting != nil {
+		switch kelvins.ServerSetting.Environment {
+		case config.DefaultEnvironmentDev:
+			logger = kelvins.BusinessLogger
+		case config.DefaultEnvironmentTest:
+			logger = kelvins.BusinessLogger
+		default:
+		}
+	}
+	if logger != nil {
+		queueLog.Set(&queueLogger{
+			logger: logger,
+		})
+	}
 
 	// only queueApp need check GetNamedTaskFuncs or RegisterEventHandler
 	if queueApp.GetNamedTaskFuncs == nil && queueApp.RegisterEventHandler == nil {

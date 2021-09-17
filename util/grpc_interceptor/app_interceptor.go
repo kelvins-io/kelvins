@@ -4,12 +4,13 @@ import (
 	"context"
 	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/vars"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"runtime/debug"
-	"strconv"
 )
 
 // AppInterceptor ...
@@ -20,9 +21,9 @@ type AppInterceptor struct {
 // AppGRPC add app info in ctx.
 func (i *AppInterceptor) AppGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	md, _ := metadata.FromIncomingContext(ctx)
+	md.Append("X-Request-Id", uuid.New().String())
+	md.Append("X-Powered-By", "kelvins/rpc "+vars.Version)
 	md.Append("kelvins-service-name", i.App.Name)
-	md.Append("kelvins-service-type", strconv.Itoa(int(i.App.Type)))
-	md.Append("kelvins-service-version", vars.Version)
 	newCtx := metadata.NewIncomingContext(ctx, md)
 	return handler(newCtx, req)
 }
@@ -42,23 +43,29 @@ func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info 
 	resp, err := handler(ctx, req)
 	s, _ := status.FromError(err)
 	if err != nil {
-		i.App.GSysErrLogger.Errorf(
-			ctx,
-			"grpc access response err：%s, grpc method: %s, req: %s, response：%s, details: %s",
-			s.Err().Error(),
-			info.FullMethod,
-			json.MarshalToStringNoError(req),
-			json.MarshalToStringNoError(resp),
-			json.MarshalToStringNoError(s.Details()),
-		)
-	} else if kelvins.ServerSetting.IsRecordCallResponse == true {
-		i.App.GKelvinsLogger.Infof(
-			ctx,
-			"grpc access response ok, grpc method: %s, req: %s, response: %s",
-			info.FullMethod,
-			json.MarshalToStringNoError(req),
-			json.MarshalToStringNoError(resp),
-		)
+		if i.App != nil && i.App.GSysErrLogger != nil {
+			i.App.GSysErrLogger.Errorf(
+				ctx,
+				"grpc access response err：%s, grpc method: %s, req: %s, response：%s, details: %s",
+				s.Err().Error(),
+				info.FullMethod,
+				json.MarshalToStringNoError(req),
+				json.MarshalToStringNoError(resp),
+				json.MarshalToStringNoError(s.Details()),
+			)
+		}
+	} else {
+		if i.App.Environment == config.DefaultEnvironmentDev || i.App.Environment == config.DefaultEnvironmentTest {
+			if i.App != nil && i.App.GSysErrLogger != nil {
+				i.App.GKelvinsLogger.Infof(
+					ctx,
+					"grpc access response ok, grpc method: %s, req: %s, response: %s",
+					info.FullMethod,
+					json.MarshalToStringNoError(req),
+					json.MarshalToStringNoError(resp),
+				)
+			}
+		}
 	}
 
 	return resp, err
@@ -68,8 +75,10 @@ func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info 
 func (i *AppInterceptor) RecoveryGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	defer func() {
 		if e := recover(); e != nil {
-			debug.PrintStack()
-			i.App.GSysErrLogger.Errorf(ctx, "grpc panic err: %v, grpc method: %s，req: %s, stack: %s", e, info.FullMethod, json.MarshalToStringNoError(req), string(debug.Stack()[:]))
+			if i.App != nil && i.App.GSysErrLogger != nil {
+				i.App.GSysErrLogger.Errorf(ctx, "grpc panic err: %v, grpc method: %s，req: %s, stack: %s",
+					e, info.FullMethod, json.MarshalToStringNoError(req), string(debug.Stack()[:]))
+			}
 		}
 	}()
 
@@ -80,8 +89,10 @@ func (i *AppInterceptor) RecoveryGRPC(ctx context.Context, req interface{}, info
 func (i *AppInterceptor) RecoveryGRPCStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	defer func() {
 		if e := recover(); e != nil {
-			debug.PrintStack()
-			i.App.GSysErrLogger.Errorf(ss.Context(), "grpc stream panic err: %v, grpc method: %s, stack: %s", e, info.FullMethod, string(debug.Stack()[:]))
+			if i.App != nil && i.App.GSysErrLogger != nil {
+				i.App.GSysErrLogger.Errorf(ss.Context(), "grpc stream panic err: %v, grpc method: %s, stack: %s",
+					e, info.FullMethod, string(debug.Stack()[:]))
+			}
 		}
 	}()
 
@@ -117,9 +128,11 @@ func (s *grpcStreamWrapper) RecvMsg(m interface{}) error {
 func (s *grpcStreamWrapper) Context() context.Context {
 	ctx := s.ss.Context()
 	md, _ := metadata.FromIncomingContext(ctx)
-	md.Append("kelvins-service-name", s.i.App.Name)
-	md.Append("kelvins-service-type", strconv.Itoa(int(s.i.App.Type)))
-	md.Append("kelvins-service-version", vars.Version)
+	md.Append("X-Request-Id", uuid.New().String())
+	md.Append("X-Powered-By", "kelvins/rpc "+vars.Version)
+	if s.i != nil && s.i.App != nil {
+		md.Append("kelvins-service-name", s.i.App.Name)
+	}
 	newCtx := metadata.NewIncomingContext(ctx, md)
 	return newCtx
 }
