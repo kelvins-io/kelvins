@@ -37,12 +37,6 @@ var (
 )
 
 func initApplication(application *kelvins.Application) error {
-	flag.Parse()
-	if application.Name == "" {
-		logging.Fatal("Application name can't not be empty")
-	}
-	kelvins.AppName = application.Name
-
 	// 1 show app version
 	showAppVersion(application)
 
@@ -75,7 +69,17 @@ func initApplication(application *kelvins.Application) error {
 	}
 
 	// 6 init system vars
-	// init logger vars
+	kelvins.AppName = application.Name
+	if kelvins.ServerSetting != nil && kelvins.ServerSetting.AppName != "" {
+		kelvins.AppName = kelvins.ServerSetting.AppName
+		application.Name = kelvins.ServerSetting.AppName
+	}
+	if kelvins.AppName == "" {
+		logging.Fatal("Application name can not be empty")
+	}
+
+	// init logger environ vars
+	flag.Parse()
 	loggerPath := DefaultLoggerRootPath
 	if kelvins.LoggerSetting != nil && kelvins.LoggerSetting.RootPath != "" {
 		loggerPath = kelvins.LoggerSetting.RootPath
@@ -464,6 +468,7 @@ func appRegisterServiceToEtcd(appName string, initialPort int64) (int64, error) 
 	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
 		ServiceVersion: kelvins.Version,
 		ServicePort:    currentPort,
+		LastModified:   time.Now().Format(kelvins.ResponseTimeLayout),
 	})
 	if err != nil {
 		if kelvins.ErrLogger != nil {

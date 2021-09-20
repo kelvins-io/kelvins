@@ -54,7 +54,6 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 		if err != nil {
 			logging.Infof("grpcApp stopGRPC err: %v\n", err)
 		}
-		application.GRPCServer.Stop()
 	}
 	err = appShutdown(application.Application, application.Port)
 	if err != nil {
@@ -137,7 +136,7 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	if err != nil {
 		return fmt.Errorf("kprocess listen(%s:%d) pidFile(%v) err: %v", network, grpcApp.Port, kelvins.PIDFile, err)
 	}
-	logging.Infof("start http server listen(%s-%d) \n", network, grpcApp.Port)
+	logging.Infof("start http server listen(%s:%d) \n", network, grpcApp.Port)
 	go func() {
 		err = grpcApp.HttpServer.Serve(ln)
 		if err != nil {
@@ -167,16 +166,16 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		appInterceptor           = grpc_interceptor.AppInterceptor{App: grpcApp}
 		authInterceptor          = middleware.AuthInterceptor{App: grpcApp}
 	)
+	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.AppGRPC)
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.RecoveryGRPC)
 	serverUnaryInterceptors = append(serverUnaryInterceptors, authInterceptor.UnaryServerInterceptor(kelvins.RPCAuthSetting))
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.LoggingGRPC)
-	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.AppGRPC)
 	if len(grpcApp.UnaryServerInterceptors) > 0 {
 		serverUnaryInterceptors = append(serverUnaryInterceptors, grpcApp.UnaryServerInterceptors...)
 	}
+	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.AppGRPCStream)
 	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.RecoveryGRPCStream)
 	serverStreamInterceptors = append(serverStreamInterceptors, authInterceptor.StreamServerInterceptor(kelvins.RPCAuthSetting))
-	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.AppGRPCStream)
 	if len(grpcApp.StreamServerInterceptors) > 0 {
 		serverStreamInterceptors = append(serverStreamInterceptors, grpcApp.StreamServerInterceptors...)
 	}
@@ -288,7 +287,11 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	if err != nil {
 		return fmt.Errorf("Setup.SetupGRPC err: %v", err)
 	}
-	if grpcApp.GRPCServer != nil && !grpcApp.DisableHealthCheck {
+	healthCheck := true
+	if kelvins.RPCServerParamsSetting != nil && kelvins.RPCServerParamsSetting.DisableHealthCheck {
+		healthCheck = false
+	}
+	if grpcApp.GRPCServer != nil && healthCheck {
 		grpcApp.HealthServer = &kelvins.GRPCHealthServer{Server: health.NewServer()}
 		healthpb.RegisterHealthServer(grpcApp.GRPCServer, grpcApp.HealthServer)
 		if grpcApp.RegisterHealthServer != nil {
@@ -326,6 +329,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 }
 
 func stopGRPC(grpcApp *kelvins.GRPCApplication) error {
+	grpcApp.GRPCServer.GracefulStop()
 	if grpcApp.HealthServer != nil {
 		grpcApp.HealthServer.Shutdown()
 	}

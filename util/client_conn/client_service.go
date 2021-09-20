@@ -46,8 +46,6 @@ func NewConnClient(serviceName string) (*ConnClient, error) {
 
 // GetConn return a valid connection as much as possible
 func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	target := fmt.Sprintf("%s:///%s", kelvinsScheme, c.ServerName)
-
 	conn, err := getRPCConn(c.ServerName)
 	if err == nil && justConnEffective(conn) {
 		return conn, nil
@@ -68,6 +66,7 @@ func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grp
 
 	// priority order: optsStartup > opts > optsDefault
 	optsUse := append(optsDefault, opts...)
+	target := fmt.Sprintf("%s:///%s", kelvinsScheme, c.ServerName)
 	conn, err = grpc.DialContext(
 		ctx,
 		target,

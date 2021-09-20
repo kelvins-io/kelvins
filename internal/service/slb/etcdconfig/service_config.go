@@ -7,16 +7,14 @@ import (
 	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/util"
-	"gitee.com/kelvins-io/kelvins/internal/vars"
 	"github.com/etcd-io/etcd/client"
 	"strings"
 	"time"
 )
 
 const (
-	ROOT            = "/"
-	SERVICE         = "kelvins-service"
-	DEFAULT_CLUSTER = "load-balance"
+	Service        = "/kelvins-service"
+	DefaultCluster = "cluster"
 )
 
 var ErrServiceConfigKeyNotExist = errors.New("service config key not exist")
@@ -29,14 +27,16 @@ type ServiceConfigClient struct {
 type Config struct {
 	ServiceVersion string `json:"service_version"`
 	ServicePort    string `json:"service_port"`
+	LastModified   string `json:"last_modified"`
 }
 
 func NewServiceConfigClient(slb *slb.ServiceLB) *ServiceConfigClient {
 	return &ServiceConfigClient{ServiceLB: slb}
 }
 
+// GetKeyName etcd key cannot end with a number
 func (s *ServiceConfigClient) GetKeyName(serverName string, sequences ...string) string {
-	key := ROOT + SERVICE + "." + serverName + "." + DEFAULT_CLUSTER + "@" + vars.Version
+	key := Service + "." + serverName + "." + DefaultCluster
 	for _, s := range sequences {
 		key += "/" + s
 	}
@@ -150,7 +150,7 @@ func (s *ServiceConfigClient) listConfigs(key string) (map[string]*Config, error
 	configs := make(map[string]*Config)
 	for _, info := range serviceInfos.Node.Nodes {
 		if len(info.Value) > 0 {
-			index := strings.Index(info.Key, ROOT+SERVICE)
+			index := strings.Index(info.Key, Service)
 			if index == 0 {
 				config := &Config{}
 				err := json.Unmarshal(info.Value, config)

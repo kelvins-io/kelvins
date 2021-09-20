@@ -4,6 +4,7 @@ import "time"
 
 // ServerSettingS defines for grpc server.
 type ServerSettingS struct {
+	AppName      string
 	Network      string
 	PIDFile      string
 	Environment  string
@@ -39,8 +40,9 @@ type JwtSettingS struct {
 }
 
 type RPCServerParamsS struct {
-	NumServerWorkers  int64
-	ConnectionTimeout int64 // unit second
+	NumServerWorkers   int64
+	ConnectionTimeout  int64 // unit second
+	DisableHealthCheck bool
 }
 
 type RPCAuthSettingS struct {

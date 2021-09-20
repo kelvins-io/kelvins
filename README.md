@@ -66,8 +66,10 @@ export ETCDV3_SERVER_URLS=http://10.211.55.4:2379,http://10.211.55.7:2379
 kelvins-server    
 时间单位#秒，Network和Timeout仅对在线应用（h2c->gPRC，http）有效   
 Environment可选值：dev，test，release，prod   
+AppName如果不为空则优先级高于代码里注入   
 ```ini
 [kelvins-server]
+AppName = "kelvins-template"
 Network = "tcp"
 Environment = "dev"
 PIDFile = "./kelvins-app.pid"
@@ -242,6 +244,7 @@ RPC服务端工作者数量，listen原始Conn超时（h2c接入rpc方式则无�
 [kelvins-rpc-server]
 NumServerWorkers = 500
 ConnectionTimeout = 120
+DisableHealthCheck = false
 ```
 
 kelvins-rpc-server-kp   
@@ -292,37 +295,37 @@ micro-mall-api/etc/app.ini#EmailConfig就属于自定义配置项
 -s restart 重启当前进程（Windows平台无效）   
 -s stop 停止当前进程   
 
-### APP注册参考
-1. 请在你的应用main.go中注册application
+### 使用参考
+1. 注册APP，在main.go中注册application
 ```go
 package main
 
 import (
 	"crypto/tls"
-	"gitee.com/cristiane/micro-mall-pay/startup"
+	"gitee.com/cristiane/micro-mall-users/startup"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/app"
 )
 
-const APP_NAME = "micro-mall-pay"
+const APP_NAME = "micro-mall-users"
 
 func main() {
 	application := &kelvins.GRPCApplication{
 		Application: &kelvins.Application{
-			LoadConfig: startup.LoadConfig,
-			SetupVars:  startup.SetupVars,
+			LoadConfig: startup.LoadConfig, // 加载自定义配置
+			SetupVars:  startup.SetupVars, // 初始自定义变量
 			Name:       APP_NAME,
 		},
 		TlsConfig: &tls.Config{
 			// 配置应用证书，仅仅对grpc,http类应用支持
 		},
 		NumServerWorkers:     200, // rpc工作协程数
-		RegisterHealthServer: startup.RegisterGRPCHealthCheck, // 异步RPC健康检查
-		RegisterGRPCServer: startup.RegisterGRPCServer,
+		RegisterHealthServer: startup.RegisterGRPCHealthStatusHandle, // 异步RPC健康状态维护
+		RegisterGRPCServer: startup.RegisterGRPCServer, // 注入getaway
 		RegisterGateway:    startup.RegisterGateway, // RPC gateway接入
 		RegisterHttpRoute:  startup.RegisterHttpRoute, // HTTP mutex
 	}
-	app.RunGRPCApplication(application)
+	app.RunGRPCApplication(application) // 只能运行一个类型APP
 }
 ```
 
@@ -340,6 +343,44 @@ grpc-health-probe -addr=127.0.0.1:58688 -service="kelvins_template.YourService"
 # 对整体服务健康检查
 grpc-health-probe -addr=127.0.0.1:58688 -service=""
 ```
+3. 基于http方式请求RPC服务（前提是注册了rpc-gateway），http服务   
+```shell
+# 获取rpc-gateway header
+# 根据proto定义的扩展选项拼接URL
+#        option (google.api.http) = {
+#            get: "/v1/service3"
+#        };
+curl http://service_name:service_port/v1/service3?id=100 -i
+HTTP/1.1 200 OK
+Content-Type: application/json
+Grpc-Metadata-Content-Type: application/grpc
+Grpc-Metadata-Trailer: Grpc-Status
+Grpc-Metadata-Trailer: Grpc-Message
+Grpc-Metadata-Trailer: Grpc-Status-Details-Bin
+Grpc-Metadata-X-Kelvins-Service-Name: kelvins-template
+Grpc-Metadata-X-Powered-By: kelvins/rpc 1.5.10
+Grpc-Metadata-X-Request-Id: 5664beaa-1c43-4eec-98d7-c611972c7303
+Trailer: Grpc-Trailer-X-Response-Time
+Trailer: Grpc-Trailer-X-Handle-Time
+Date: Mon, 20 Sep 2021 08:11:19 GMT
+Transfer-Encoding: chunked
+{"common":{"msg":"99"},"result":"service3 "}
+Grpc-Trailer-X-Handle-Time: 0.002057175/s
+Grpc-Trailer-X-Response-Time: 2021-09-20 16:11:19.776
+
+# 获取http服务的header
+curl http://service_name:service_port/index -i
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+X-Handle-Time: 0.000097/s
+X-Kelvins-Service-Name: kelvins-template-http
+X-Powered-By: kelvins/http(gin) 1.5.10
+X-Request-Id: 69b8e804-4c5b-4091-b485-88400fceedc7
+X-Response-Time: 2021-09-20 16:19:39.783
+Date: Mon, 20 Sep 2021 08:19:39 GMT
+Content-Length: 105
+```
+
 
 ### 更新日志
 时间 | 内容 |  贡献者 | 备注  
@@ -361,6 +402,8 @@ grpc-health-probe -addr=127.0.0.1:58688 -service=""
 2021-9-1 | 若干更新 | https://gitee.com/cristiane | rpc日志对齐&rpc server参数配置化&启动优化
 2021-9-11 | 若干更新 | https://gitee.com/cristiane | client_service,print,queue等若干优化
 2021-9-18 | 运行环境优化，http优化 | https://gitee.com/cristiane | 根据运行环境日志打印
+2021-9-20 | rpc，http注入metadata，服务注册优化 | https://gitee.com/cristiane | 诸如request-id，version等
+
 
 ### 业务应用
 micro-mall-api系列共计16+个服务：https://gitee.com/cristiane/micro-mall-api

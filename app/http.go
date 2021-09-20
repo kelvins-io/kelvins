@@ -96,6 +96,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		ginEngineInit()
 		var httpGinEng = gin.Default()
 		handler = httpGinEng
+		httpGinEng.Use(gin_helper.Metadata())
 		httpGinEng.Use(gin_helper.Cors())
 		if isMonitor {
 			pprof.Register(httpGinEng, "/debug")

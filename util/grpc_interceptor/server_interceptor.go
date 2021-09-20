@@ -2,6 +2,7 @@ package grpc_interceptor
 
 import (
 	"context"
+	"fmt"
 	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
@@ -11,6 +12,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"runtime/debug"
+	"time"
 )
 
 // AppInterceptor ...
@@ -20,22 +22,26 @@ type AppInterceptor struct {
 
 // AppGRPC add app info in ctx.
 func (i *AppInterceptor) AppGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	md, _ := metadata.FromIncomingContext(ctx)
-	md.Append("X-Request-Id", uuid.New().String())
-	md.Append("X-Powered-By", "kelvins/rpc "+vars.Version)
-	md.Append("kelvins-service-name", i.App.Name)
-	newCtx := metadata.NewIncomingContext(ctx, md)
-	return handler(newCtx, req)
+	incomeTime := time.Now()
+	i.handleMetadata(ctx)
+	defer func() {
+		outcomeTime := time.Now()
+		i.statistics(ctx, incomeTime, outcomeTime)
+	}()
+
+	return handler(ctx, req)
 }
 
-// AppGRPCStream 是否有存在的意义
 // AppGRPCStream is experimental function
 func (i *AppInterceptor) AppGRPCStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	wrapper := &grpcStreamWrapper{
-		i:  i,
-		ss: ss,
-	}
-	return handler(srv, wrapper)
+	incomeTime := time.Now()
+	i.handleMetadata(ss.Context())
+	defer func() {
+		outcomeTime := time.Now()
+		i.statistics(ss.Context(), incomeTime, outcomeTime)
+	}()
+
+	return handler(srv, ss)
 }
 
 // LoggingGRPC loggingGRPC logs GRPC request.
@@ -99,40 +105,45 @@ func (i *AppInterceptor) RecoveryGRPCStream(srv interface{}, ss grpc.ServerStrea
 	return handler(srv, ss)
 }
 
-// grpcStreamWrapper 是否有存在的意义
-type grpcStreamWrapper struct {
-	i  *AppInterceptor
-	ss grpc.ServerStream
-}
-
-func (s *grpcStreamWrapper) SetHeader(md metadata.MD) error {
-	return s.ss.SetHeader(md)
-}
-
-func (s *grpcStreamWrapper) SendHeader(md metadata.MD) error {
-	return s.ss.SendHeader(md)
-}
-
-func (s *grpcStreamWrapper) SetTrailer(md metadata.MD) {
-	s.ss.SetTrailer(md)
-}
-
-func (s *grpcStreamWrapper) SendMsg(m interface{}) error {
-	return s.ss.SendMsg(m)
-}
-
-func (s *grpcStreamWrapper) RecvMsg(m interface{}) error {
-	return s.ss.RecvMsg(m)
-}
-
-func (s *grpcStreamWrapper) Context() context.Context {
-	ctx := s.ss.Context()
-	md, _ := metadata.FromIncomingContext(ctx)
-	md.Append("X-Request-Id", uuid.New().String())
-	md.Append("X-Powered-By", "kelvins/rpc "+vars.Version)
-	if s.i != nil && s.i.App != nil {
-		md.Append("kelvins-service-name", s.i.App.Name)
+func (i *AppInterceptor) handleMetadata(ctx context.Context) {
+	// request id
+	okRequestId, requestId := getRPCRequestId(ctx)
+	if !okRequestId {
+		// set request id to server
+		md := metadata.Pairs(kelvins.RPCMetadataRequestId, requestId)
+		ctx = metadata.NewOutgoingContext(ctx, md)
 	}
-	newCtx := metadata.NewIncomingContext(ctx, md)
-	return newCtx
+	// return client info
+	header := metadata.New(map[string]string{
+		kelvins.RPCMetadataRequestId:   requestId,
+		kelvins.RPCMetadataServiceName: i.App.Name,
+		kelvins.RPCMetadataPowerBy:     "kelvins/rpc " + vars.Version,
+	})
+	grpc.SetHeader(ctx, header)
+}
+
+func (i *AppInterceptor) statistics(ctx context.Context, incomeTime, outcomeTime time.Time) {
+	handleTime := fmt.Sprintf("%f/s", outcomeTime.Sub(incomeTime).Seconds())
+	md := metadata.Pairs(kelvins.RPCMetadataResponseTime, outcomeTime.Format(kelvins.ResponseTimeLayout), kelvins.RPCMetadataHandleTime, handleTime)
+	grpc.SetTrailer(ctx, md)
+}
+
+func getRPCRequestId(ctx context.Context) (ok bool, requestId string) {
+	ok = false
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		if t, ok := md[kelvins.RPCMetadataRequestId]; ok {
+			for _, e := range t {
+				if e != "" {
+					requestId = e
+					ok = true
+					break
+				}
+			}
+		}
+	}
+	if requestId == "" {
+		requestId = uuid.New().String()
+	}
+	return
 }

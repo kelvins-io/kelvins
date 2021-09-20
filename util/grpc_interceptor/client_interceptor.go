@@ -2,6 +2,9 @@ package grpc_interceptor
 
 import (
 	"context"
+	"gitee.com/kelvins-io/kelvins"
+	"github.com/google/uuid"
+	"google.golang.org/grpc/metadata"
 	"time"
 
 	"google.golang.org/grpc"
@@ -43,6 +46,10 @@ func ctxHandler(ctx context.Context) (context.Context, context.CancelFunc) {
 
 		ctx, cancel = context.WithTimeout(ctx, defaultTimeout)
 	}
+
+	// set client metadata
+	md := metadata.Pairs(kelvins.RPCMetadataRequestId, uuid.New().String())
+	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	return ctx, cancel
 }

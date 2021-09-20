@@ -49,7 +49,6 @@ type GRPCApplication struct {
 	Port                     int64
 	GRPCServer               *grpc.Server
 	HealthServer             *GRPCHealthServer
-	DisableHealthCheck       bool
 	RegisterHealthServer     func(*GRPCHealthServer) // execute in the coroutine
 	NumServerWorkers         uint32
 	GatewayServeMux          *runtime.ServeMux
