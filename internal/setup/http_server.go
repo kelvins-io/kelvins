@@ -11,7 +11,7 @@ import (
 )
 
 // NewHttpServer ...
-func NewHttpServer(handler http.Handler, tlsConfig *tls.Config, serverSetting *setting.ServerSettingS) *http.Server {
+func NewHttpServer(handler http.Handler, tlsConfig *tls.Config, serverSetting *setting.HttpServerSettingS) *http.Server {
 	return &http.Server{
 		Handler:      handler,
 		TLSConfig:    tlsConfig,
@@ -22,8 +22,12 @@ func NewHttpServer(handler http.Handler, tlsConfig *tls.Config, serverSetting *s
 	}
 }
 
+func NewHttp2Server(handler http.Handler, tlsConfig *tls.Config, serverSetting *setting.HttpServerSettingS) *http.Server {
+	return NewHttpServer(h2c.NewHandler(handler, &http2.Server{IdleTimeout: serverSetting.GetIdleTimeout()}), tlsConfig, serverSetting)
+}
+
 // GRPCHandlerFunc gRPCHandlerFunc ...
-func GRPCHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler, serverSetting *setting.ServerSettingS) http.Handler {
+func GRPCHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler, serverSetting *setting.HttpServerSettingS) http.Handler {
 	if otherHandler == nil {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			grpcServer.ServeHTTP(w, r)

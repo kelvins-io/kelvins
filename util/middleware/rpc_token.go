@@ -16,30 +16,30 @@ import (
 )
 
 var (
-	tokenValidityDuration = 30 * time.Second
-	errUnauthenticated    = status.Errorf(codes.Unauthenticated, "authentication required")
-	errDenied             = status.Errorf(codes.PermissionDenied, "permission denied")
+	tokenValidityDurationDefault = 30 * time.Second
+	errUnauthenticated           = status.Errorf(codes.Unauthenticated, "authentication required")
+	errDenied                    = status.Errorf(codes.PermissionDenied, "permission denied")
 )
 
-func TokenValidityDuration() time.Duration {
-	return tokenValidityDuration
-}
-
-func SetTokenValidityDuration(d time.Duration) {
-	tokenValidityDuration = d
-}
-
 func RPCPerCredentials(sharedSecret string) credentials.PerRPCCredentials {
-	return &rpcAuthPerCredentials{sharedSecret: sharedSecret}
+	return &rpcPerAuthCredentials{sharedSecret: sharedSecret}
 }
 
-type rpcAuthPerCredentials struct {
+// GetRPCPerAuthHeader 根据私钥获取RPC 接入auth header
+func GetRPCPerAuthHeader(secret string) (map[string]string, error) {
+	x := rpcPerAuthCredentials{
+		sharedSecret: secret,
+	}
+	return x.GetRequestMetadata(context.Background())
+}
+
+type rpcPerAuthCredentials struct {
 	sharedSecret string
 }
 
-func (*rpcAuthPerCredentials) RequireTransportSecurity() bool { return false }
+func (*rpcPerAuthCredentials) RequireTransportSecurity() bool { return false }
 
-func (rc *rpcAuthPerCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (rc *rpcPerAuthCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	message := strconv.FormatInt(time.Now().Unix(), 10)
 	signature := hmacSign([]byte(rc.sharedSecret), message)
 
@@ -88,9 +88,12 @@ type AuthInfo struct {
 	Message       string
 }
 
-func checkToken(ctx context.Context, secret string, targetTime time.Time) (*AuthInfo, error) {
+func checkToken(ctx context.Context, secret string, targetTime time.Time, tokenValidityDuration time.Duration) (*AuthInfo, error) {
 	if len(secret) == 0 {
 		panic("checkToken: secret may not be empty")
+	}
+	if tokenValidityDuration < 0 {
+		tokenValidityDuration = tokenValidityDurationDefault
 	}
 
 	authInfo, err := extractAuthInfo(ctx)

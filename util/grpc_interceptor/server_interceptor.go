@@ -4,86 +4,146 @@ import (
 	"context"
 	"fmt"
 	"gitee.com/kelvins-io/common/json"
+	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
-	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/vars"
+	"gitee.com/kelvins-io/kelvins/util/rpc_helper"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"regexp"
 	"runtime/debug"
 	"time"
 )
 
-// AppInterceptor ...
-type AppInterceptor struct {
-	App *kelvins.GRPCApplication
+type AppServerInterceptor struct {
+	accessLogger, errLogger log.LoggerContextIface
+	debug                   bool
 }
 
-// AppGRPC add app info in ctx.
-func (i *AppInterceptor) AppGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	incomeTime := time.Now()
-	i.handleMetadata(ctx)
-	defer func() {
-		outcomeTime := time.Now()
-		i.statistics(ctx, incomeTime, outcomeTime)
-	}()
+func NewAppServerInterceptor(debug bool, accessLogger, errLogger log.LoggerContextIface) *AppServerInterceptor {
+	return &AppServerInterceptor{accessLogger: accessLogger, errLogger: errLogger, debug: debug}
+}
 
+func (i *AppServerInterceptor) Metadata(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	if methodIgnore(info.FullMethod) {
+		return handler(ctx, req)
+	}
+	i.handleMetadata(ctx)
 	return handler(ctx, req)
 }
 
-// AppGRPCStream is experimental function
-func (i *AppInterceptor) AppGRPCStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+// Logger add app info in ctx.
+func (i *AppServerInterceptor) Logger(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	if methodIgnore(info.FullMethod) {
+		return handler(ctx, req)
+	}
 	incomeTime := time.Now()
-	i.handleMetadata(ss.Context())
+	requestMeta := rpc_helper.GetRequestMetadata(ctx)
+	var outcomeTime time.Time
+	var resp interface{}
+	var err error
 	defer func() {
-		outcomeTime := time.Now()
-		i.statistics(ss.Context(), incomeTime, outcomeTime)
-	}()
-
-	return handler(srv, ss)
-}
-
-// LoggingGRPC loggingGRPC logs GRPC request.
-func (i *AppInterceptor) LoggingGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	resp, err := handler(ctx, req)
-	s, _ := status.FromError(err)
-	if err != nil {
-		if i.App != nil && i.App.GSysErrLogger != nil {
-			i.App.GSysErrLogger.Errorf(
-				ctx,
-				"grpc access response err：%s, grpc method: %s, req: %s, response：%s, details: %s",
-				s.Err().Error(),
-				info.FullMethod,
-				json.MarshalToStringNoError(req),
-				json.MarshalToStringNoError(resp),
-				json.MarshalToStringNoError(s.Details()),
-			)
-		}
-	} else {
-		if i.App.Environment == config.DefaultEnvironmentDev || i.App.Environment == config.DefaultEnvironmentTest {
-			if i.App != nil && i.App.GSysErrLogger != nil {
-				i.App.GKelvinsLogger.Infof(
+		outcomeTime = time.Now()
+		i.echoStatistics(ctx, incomeTime, outcomeTime)
+		// unary interceptor record req resp err
+		if err != nil {
+			s, _ := status.FromError(err)
+			if i.errLogger != nil {
+				i.errLogger.Errorf(
 					ctx,
-					"grpc access response ok, grpc method: %s, req: %s, response: %s",
+					"grpc access response err：%s, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, req: %s, response：%s, details: %s",
+					s.Err().Error(),
 					info.FullMethod,
+					json.MarshalToStringNoError(requestMeta),
+					outcomeTime.Format(kelvins.ResponseTimeLayout),
+					outcomeTime.Sub(incomeTime).Seconds(),
+					json.MarshalToStringNoError(req),
+					json.MarshalToStringNoError(resp),
+					json.MarshalToStringNoError(s.Details()),
+				)
+			}
+		} else {
+			if i.debug && i.accessLogger != nil {
+				i.accessLogger.Infof(
+					ctx,
+					"grpc access response ok, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, req: %s, response: %s",
+					info.FullMethod,
+					json.MarshalToStringNoError(requestMeta),
+					outcomeTime.Format(kelvins.ResponseTimeLayout),
+					outcomeTime.Sub(incomeTime).Seconds(),
 					json.MarshalToStringNoError(req),
 					json.MarshalToStringNoError(resp),
 				)
 			}
 		}
-	}
+	}()
 
+	resp, err = handler(ctx, req)
 	return resp, err
 }
 
-// RecoveryGRPC recovers GRPC panic.
-func (i *AppInterceptor) RecoveryGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+func (i *AppServerInterceptor) StreamMetadata(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	if methodIgnore(info.FullMethod) {
+		return handler(srv, ss)
+	}
+	i.handleMetadata(ss.Context())
+	return handler(srv, ss)
+}
+
+// StreamLogger is experimental function
+func (i *AppServerInterceptor) StreamLogger(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	if methodIgnore(info.FullMethod) {
+		return handler(srv, ss)
+	}
+	incomeTime := time.Now()
+	requestMeta := rpc_helper.GetRequestMetadata(ss.Context())
+	var err error
+	defer func() {
+		outcomeTime := time.Now()
+		i.echoStatistics(ss.Context(), incomeTime, outcomeTime)
+		if err != nil {
+			s, _ := status.FromError(err)
+			if i.errLogger != nil {
+				// stream interceptor only record error
+				i.errLogger.Errorf(
+					ss.Context(),
+					"grpc access stream handle err：%s, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, details: %s",
+					s.Err().Error(),
+					info.FullMethod,
+					json.MarshalToStringNoError(requestMeta),
+					outcomeTime.Format(kelvins.ResponseTimeLayout),
+					outcomeTime.Sub(incomeTime).Seconds(),
+					json.MarshalToStringNoError(s.Details()),
+				)
+			}
+		} else {
+			if i.debug && i.accessLogger != nil {
+				i.accessLogger.Infof(
+					ss.Context(),
+					"grpc access stream handle ok, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s",
+					info.FullMethod,
+					json.MarshalToStringNoError(requestMeta),
+					outcomeTime.Format(kelvins.ResponseTimeLayout),
+					outcomeTime.Sub(incomeTime).Seconds(),
+				)
+			}
+		}
+	}()
+
+	err = handler(srv, NewStreamWrapper(ss.Context(), i.accessLogger, i.errLogger, ss, info, requestMeta, i.debug))
+	return err
+}
+
+// Recovery recovers GRPC panic.
+func (i *AppServerInterceptor) Recovery(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	requestMeta := rpc_helper.GetRequestMetadata(ctx)
 	defer func() {
 		if e := recover(); e != nil {
-			if i.App != nil && i.App.GSysErrLogger != nil {
-				i.App.GSysErrLogger.Errorf(ctx, "grpc panic err: %v, grpc method: %s，req: %s, stack: %s",
-					e, info.FullMethod, json.MarshalToStringNoError(req), string(debug.Stack()[:]))
+			if i.errLogger != nil {
+				i.errLogger.Errorf(ctx, "grpc panic err: %v, grpc method: %s，requestMeta: %v, req: %s, stack: %s",
+					e, info.FullMethod, json.MarshalToStringNoError(requestMeta), json.MarshalToStringNoError(req), string(debug.Stack()[:]))
 			}
 		}
 	}()
@@ -91,13 +151,14 @@ func (i *AppInterceptor) RecoveryGRPC(ctx context.Context, req interface{}, info
 	return handler(ctx, req)
 }
 
-// RecoveryGRPCStream is experimental function
-func (i *AppInterceptor) RecoveryGRPCStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+// RecoveryStream is experimental function
+func (i *AppServerInterceptor) RecoveryStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	requestMeta := rpc_helper.GetRequestMetadata(ss.Context())
 	defer func() {
 		if e := recover(); e != nil {
-			if i.App != nil && i.App.GSysErrLogger != nil {
-				i.App.GSysErrLogger.Errorf(ss.Context(), "grpc stream panic err: %v, grpc method: %s, stack: %s",
-					e, info.FullMethod, string(debug.Stack()[:]))
+			if i.errLogger != nil {
+				i.errLogger.Errorf(ss.Context(), "grpc stream panic err: %v, grpc method: %s, requestMeta: %v, stack: %s",
+					e, info.FullMethod, json.MarshalToStringNoError(requestMeta), string(debug.Stack()[:]))
 			}
 		}
 	}()
@@ -105,7 +166,7 @@ func (i *AppInterceptor) RecoveryGRPCStream(srv interface{}, ss grpc.ServerStrea
 	return handler(srv, ss)
 }
 
-func (i *AppInterceptor) handleMetadata(ctx context.Context) {
+func (i *AppServerInterceptor) handleMetadata(ctx context.Context) (rId string) {
 	// request id
 	okRequestId, requestId := getRPCRequestId(ctx)
 	if !okRequestId {
@@ -116,13 +177,15 @@ func (i *AppInterceptor) handleMetadata(ctx context.Context) {
 	// return client info
 	header := metadata.New(map[string]string{
 		kelvins.RPCMetadataRequestId:   requestId,
-		kelvins.RPCMetadataServiceName: i.App.Name,
+		kelvins.RPCMetadataServiceName: kelvins.AppName,
 		kelvins.RPCMetadataPowerBy:     "kelvins/rpc " + vars.Version,
 	})
 	grpc.SetHeader(ctx, header)
+
+	return requestId
 }
 
-func (i *AppInterceptor) statistics(ctx context.Context, incomeTime, outcomeTime time.Time) {
+func (i *AppServerInterceptor) echoStatistics(ctx context.Context, incomeTime, outcomeTime time.Time) {
 	handleTime := fmt.Sprintf("%f/s", outcomeTime.Sub(incomeTime).Seconds())
 	md := metadata.Pairs(kelvins.RPCMetadataResponseTime, outcomeTime.Format(kelvins.ResponseTimeLayout), kelvins.RPCMetadataHandleTime, handleTime)
 	grpc.SetTrailer(ctx, md)
@@ -147,3 +210,118 @@ func getRPCRequestId(ctx context.Context) (ok bool, requestId string) {
 	}
 	return
 }
+
+type streamWrapper struct {
+	accessLogger, errLogger log.LoggerContextIface
+	ss                      grpc.ServerStream
+	ctx                     context.Context
+	info                    *grpc.StreamServerInfo
+	requestMeta             *rpc_helper.RequestMeta
+	debug                   bool
+}
+
+func NewStreamWrapper(ctx context.Context,
+	accessLogger, errLogger log.LoggerContextIface,
+	ss grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	requestMeta *rpc_helper.RequestMeta,
+	debug bool) *streamWrapper {
+	return &streamWrapper{ctx: ctx, accessLogger: accessLogger, errLogger: errLogger, ss: ss, info: info, requestMeta: requestMeta, debug: debug}
+}
+func (s *streamWrapper) SetHeader(md metadata.MD) error  { return s.ss.SetHeader(md) }
+func (s *streamWrapper) SendHeader(md metadata.MD) error { return s.ss.SendHeader(md) }
+func (s *streamWrapper) SetTrailer(md metadata.MD)       { s.ss.SetTrailer(md) }
+func (s *streamWrapper) Context() context.Context        { return s.ss.Context() }
+func (s *streamWrapper) SendMsg(m interface{}) error {
+	if methodIgnore(s.info.FullMethod) {
+		return s.ss.SendMsg(m)
+	}
+	var err error
+	incomeTime := time.Now()
+	var outcomeTime time.Time
+	defer func() {
+		outcomeTime = time.Now()
+		if err != nil {
+			sts, _ := status.FromError(err)
+			if s.errLogger != nil {
+				s.errLogger.Errorf(
+					s.ctx,
+					"grpc stream/send err：%s, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, data: %s, details: %s",
+					sts.Err().Error(),
+					s.info.FullMethod,
+					json.MarshalToStringNoError(s.requestMeta),
+					outcomeTime.Format(kelvins.ResponseTimeLayout),
+					outcomeTime.Sub(incomeTime).Seconds(),
+					json.MarshalToStringNoError(m),
+					json.MarshalToStringNoError(sts.Details()),
+				)
+			}
+		} else {
+			if s.debug && s.accessLogger != nil {
+				s.accessLogger.Infof(
+					s.ctx,
+					"grpc stream/send ok, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, data: %s",
+					s.info.FullMethod,
+					json.MarshalToStringNoError(s.requestMeta),
+					outcomeTime.Format(kelvins.ResponseTimeLayout),
+					outcomeTime.Sub(incomeTime).Seconds(),
+					json.MarshalToStringNoError(m),
+				)
+			}
+		}
+	}()
+
+	err = s.ss.SendMsg(m)
+	return err
+}
+func (s *streamWrapper) RecvMsg(m interface{}) error {
+	if methodIgnore(s.info.FullMethod) {
+		return s.ss.RecvMsg(m)
+	}
+	var err error
+	incomeTime := time.Now()
+	var outcomeTime time.Time
+	defer func() {
+		outcomeTime = time.Now()
+		if err != nil {
+			sts, _ := status.FromError(err)
+			if s.errLogger != nil {
+				s.errLogger.Errorf(
+					s.ctx,
+					"grpc stream/recv err：%s, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, data: %s, details: %s",
+					sts.Err().Error(),
+					s.info.FullMethod,
+					json.MarshalToStringNoError(s.requestMeta),
+					outcomeTime.Format(kelvins.ResponseTimeLayout),
+					outcomeTime.Sub(incomeTime).Seconds(),
+					json.MarshalToStringNoError(m),
+					json.MarshalToStringNoError(sts.Details()),
+				)
+			}
+		} else {
+			if s.debug && s.accessLogger != nil {
+				s.accessLogger.Infof(
+					s.ctx,
+					"grpc stream/recv ok, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, data: %s",
+					s.info.FullMethod,
+					json.MarshalToStringNoError(s.requestMeta),
+					outcomeTime.Format(kelvins.ResponseTimeLayout),
+					outcomeTime.Sub(incomeTime).Seconds(),
+					json.MarshalToStringNoError(m),
+				)
+			}
+		}
+	}()
+
+	err = s.ss.RecvMsg(m)
+	return err
+}
+
+func methodIgnore(fullMethod string) (ignore bool) {
+	ignore = ignoreStreamMethod.MatchString(fullMethod)
+	return ignore
+}
+
+var (
+	ignoreStreamMethod = regexp.MustCompilePOSIX(`^/grpc\.health\..*`)
+)

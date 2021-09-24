@@ -1,7 +1,7 @@
 package kelvins
 
 const (
-	Version = "1.5.10"
+	Version = "1.5.11"
 )
 
 const (

@@ -2,7 +2,9 @@ package rpc_helper
 
 import (
 	"context"
+	"fmt"
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/vars"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -20,4 +22,16 @@ func GetRequestId(ctx context.Context) (requestId string) {
 		}
 	}
 	return
+}
+
+type RequestMeta struct {
+	RequestId string
+	Version   string
+}
+
+func GetRequestMetadata(ctx context.Context) *RequestMeta {
+	return &RequestMeta{
+		RequestId: GetRequestId(ctx),
+		Version:   fmt.Sprintf("kelvins/rpc %v", vars.Version),
+	}
 }

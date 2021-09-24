@@ -155,9 +155,9 @@ func setupQueueVars(queueApp *kelvins.QueueApplication) error {
 	if kelvins.ServerSetting != nil {
 		switch kelvins.ServerSetting.Environment {
 		case config.DefaultEnvironmentDev:
-			logger = kelvins.BusinessLogger
+			logger = kelvins.AccessLogger
 		case config.DefaultEnvironmentTest:
-			logger = kelvins.BusinessLogger
+			logger = kelvins.AccessLogger
 		default:
 		}
 	}

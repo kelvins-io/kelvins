@@ -13,6 +13,8 @@ const (
 	ConfFileName = "./etc/app.ini"
 	// SectionServer is a section name for grpc server.
 	SectionServer = "kelvins-server"
+	// SectionHttpServer is a section name for http
+	SectionHttpServer = "kelvins-http-server"
 	// SectionLogger is a section name for logger.
 	SectionLogger = "kelvins-logger"
 	// SectionMysql is a sectoin name for mysql.
@@ -78,6 +80,10 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 			kelvins.ServerSetting = new(setting.ServerSettingS)
 			MapConfig(sectionName, kelvins.ServerSetting)
 			continue
+		}
+		if sectionName == SectionHttpServer {
+			kelvins.HttpServerSetting = new(setting.HttpServerSettingS)
+			MapConfig(sectionName, kelvins.HttpServerSetting)
 		}
 		if sectionName == SectionJwt {
 			kelvins.JwtSetting = new(setting.JwtSettingS)

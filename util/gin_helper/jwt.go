@@ -12,21 +12,21 @@ func CheckUserToken() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Request.Header.Get("token")
 		if token == "" {
-			JsonResponse(c, http.StatusOK, ErrorTokenEmpty, GetMsg(ErrorTokenEmpty))
+			JsonResponse(c, http.StatusUnauthorized, ErrorTokenEmpty, GetMsg(ErrorTokenEmpty))
 			c.Abort()
 			return
 		}
 		claims, err := ParseToken(token)
 		if err != nil {
-			JsonResponse(c, http.StatusOK, ErrorTokenInvalid, GetMsg(ErrorTokenInvalid))
+			JsonResponse(c, http.StatusForbidden, ErrorTokenInvalid, GetMsg(ErrorTokenInvalid))
 			c.Abort()
 			return
 		} else if claims == nil || claims.Uid == 0 {
-			JsonResponse(c, http.StatusOK, ErrorUserNotExist, GetMsg(ErrorUserNotExist))
+			JsonResponse(c, http.StatusForbidden, ErrorUserNotExist, GetMsg(ErrorUserNotExist))
 			c.Abort()
 			return
 		} else if time.Now().Unix() > claims.ExpiresAt {
-			JsonResponse(c, http.StatusOK, ErrorTokenExpire, GetMsg(ErrorTokenExpire))
+			JsonResponse(c, http.StatusForbidden, ErrorTokenExpire, GetMsg(ErrorTokenExpire))
 			c.Abort()
 			return
 		}

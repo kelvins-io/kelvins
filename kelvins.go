@@ -49,7 +49,7 @@ type GRPCApplication struct {
 	Port                     int64
 	GRPCServer               *grpc.Server
 	HealthServer             *GRPCHealthServer
-	RegisterHealthServer     func(*GRPCHealthServer) // execute in the coroutine
+	RegisterGRPCHealthHandle func(*GRPCHealthServer) // execute in the coroutine
 	NumServerWorkers         uint32
 	GatewayServeMux          *runtime.ServeMux
 	Mux                      *http.ServeMux

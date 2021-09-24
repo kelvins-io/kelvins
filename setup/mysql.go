@@ -76,9 +76,8 @@ func NewMySQLWithGORM(mysqlSetting *setting.MysqlSettingS) (*gorm.DB, error) {
 
 	environ := mysqlSetting.Environment
 	if environ == config.DefaultEnvironmentDev || environ == config.DefaultEnvironmentTest {
-		logger, _ := log.GetCustomLogger("db-log", "gorm")
 		gormLogger := &gormLogger{
-			logger: logger,
+			logger: mysqlSetting.Logger,
 		}
 		db.LogMode(true)
 		if environ == config.DefaultEnvironmentDev {
@@ -120,11 +119,12 @@ var logBufPool = sync.Pool{
 var gormLoggerCtx = context.Background()
 
 func (l *gormLogger) Print(vv ...interface{}) {
-	l.logger.Info(gormLoggerCtx, vv)
+	l.logger.Info(gormLoggerCtx, "[gorm] ", vv)
 	if l.out != nil {
 		buf := logBufPool.Get().(*[]byte)
 		defer logBufPool.Put(buf)
 		w := bytes.NewBuffer(*buf)
+		w.WriteString("[gorm] ")
 		for _, v := range vv {
 			vLog, _ := json.Marshal(v)
 			w.Write(vLog)
@@ -196,9 +196,8 @@ func NewMySQLWithXORM(mysqlSetting *setting.MysqlSettingS) (xorm.EngineInterface
 	environ := mysqlSetting.Environment
 	if environ == config.DefaultEnvironmentDev || environ == config.DefaultEnvironmentTest {
 		var writer io.Writer
-		logger, _ := log.GetCustomLogger("db-log", "xorm")
 		writer = &xormLogger{
-			logger: logger,
+			logger: mysqlSetting.Logger,
 		}
 		engine.SetLogLevel(xormLogLevel[mysqlSetting.LoggerLevel])
 		if environ == config.DefaultEnvironmentDev {
@@ -233,7 +232,7 @@ type xormLogger struct {
 }
 
 func (l *xormLogger) Write(p []byte) (n int, err error) {
-	l.logger.Info(xormLoggerCtx, string(p))
+	l.logger.Info(xormLoggerCtx, "[xorm] ", string(p))
 	return 0, nil
 }
 

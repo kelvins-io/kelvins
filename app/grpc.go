@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/config/setting"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	setupInternal "gitee.com/kelvins-io/kelvins/internal/setup"
@@ -128,8 +129,8 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 
 	// 6. start server
 	network := "tcp"
-	if kelvins.ServerSetting.Network != "" {
-		network = kelvins.ServerSetting.Network
+	if kelvins.HttpServerSetting.Network != "" {
+		network = kelvins.HttpServerSetting.Network
 	}
 	kp := new(kprocess.KProcess)
 	ln, err := kp.Listen(network, fmt.Sprintf(":%d", grpcApp.Port), kelvins.PIDFile)
@@ -159,22 +160,29 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	var err error
 	grpcApp.GKelvinsLogger = kelvins.AccessLogger
 	grpcApp.GSysErrLogger = kelvins.ErrLogger
-
+	var debug bool
+	if grpcApp.Environment == config.DefaultEnvironmentDev || grpcApp.Environment == config.DefaultEnvironmentTest {
+		debug = true
+	}
 	var (
 		serverUnaryInterceptors  []grpc.UnaryServerInterceptor
 		serverStreamInterceptors []grpc.StreamServerInterceptor
-		appInterceptor           = grpc_interceptor.AppInterceptor{App: grpcApp}
-		authInterceptor          = middleware.AuthInterceptor{App: grpcApp}
+		appInterceptor           = grpc_interceptor.NewAppServerInterceptor(debug, grpcApp.GKelvinsLogger, grpcApp.GKelvinsLogger)
+		authInterceptor          = middleware.NewRPCPerAuthInterceptor(grpcApp.GKelvinsLogger)
 	)
-	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.AppGRPC)
-	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.RecoveryGRPC)
+	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Metadata)
+	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Recovery)
+	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Logger)
+	if kelvins.RPCAuthSetting == nil {
+		kelvins.RPCAuthSetting = new(setting.RPCAuthSettingS)
+	}
 	serverUnaryInterceptors = append(serverUnaryInterceptors, authInterceptor.UnaryServerInterceptor(kelvins.RPCAuthSetting))
-	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.LoggingGRPC)
 	if len(grpcApp.UnaryServerInterceptors) > 0 {
 		serverUnaryInterceptors = append(serverUnaryInterceptors, grpcApp.UnaryServerInterceptors...)
 	}
-	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.AppGRPCStream)
-	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.RecoveryGRPCStream)
+	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.StreamMetadata)
+	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.RecoveryStream)
+	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.StreamLogger)
 	serverStreamInterceptors = append(serverStreamInterceptors, authInterceptor.StreamServerInterceptor(kelvins.RPCAuthSetting))
 	if len(grpcApp.StreamServerInterceptors) > 0 {
 		serverStreamInterceptors = append(serverStreamInterceptors, grpcApp.StreamServerInterceptors...)
@@ -283,21 +291,24 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		}
 	}
 
-	grpcApp.GRPCServer, err = setupInternal.NewGRPC(kelvins.ServerSetting, serverOptions)
-	if err != nil {
-		return fmt.Errorf("Setup.SetupGRPC err: %v", err)
-	}
-	healthCheck := true
-	if kelvins.RPCServerParamsSetting != nil && kelvins.RPCServerParamsSetting.DisableHealthCheck {
-		healthCheck = false
-	}
-	if grpcApp.GRPCServer != nil && healthCheck {
-		grpcApp.HealthServer = &kelvins.GRPCHealthServer{Server: health.NewServer()}
-		healthpb.RegisterHealthServer(grpcApp.GRPCServer, grpcApp.HealthServer)
-		if grpcApp.RegisterHealthServer != nil {
-			go func() {
-				grpcApp.RegisterHealthServer(grpcApp.HealthServer)
-			}()
+	// health server
+	grpcApp.GRPCServer = setupInternal.NewGRPC(serverOptions)
+	if grpcApp.GRPCServer != nil {
+		if kelvins.RPCServerParamsSetting != nil && !kelvins.RPCServerParamsSetting.DisableHealthServer {
+			grpcApp.HealthServer = &kelvins.GRPCHealthServer{Server: health.NewServer()}
+			healthpb.RegisterHealthServer(grpcApp.GRPCServer, grpcApp.HealthServer)
+			if grpcApp.RegisterGRPCHealthHandle != nil {
+				go func() {
+					grpcApp.RegisterGRPCHealthHandle(grpcApp.HealthServer)
+				}()
+			}
+		}
+		healthCheck := true
+		if kelvins.RPCServerParamsSetting != nil && kelvins.RPCServerParamsSetting.DisableClientDialHealthCheck {
+			healthCheck = false
+		}
+		if !healthCheck {
+			client_conn.RPCClientDialOptionAppend([]grpc.DialOption{grpc.WithDisableHealthCheck()})
 		}
 	}
 	grpcApp.GatewayServeMux = setupInternal.NewGateway()
@@ -313,11 +324,14 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		}
 	}
 	grpcApp.Mux = setupInternal.NewGatewayServerMux(grpcApp.GatewayServeMux, isMonitor)
-	kelvins.ServerSetting.SetAddr(fmt.Sprintf(":%d", grpcApp.Port))
+	if kelvins.HttpServerSetting == nil {
+		kelvins.HttpServerSetting = new(setting.HttpServerSettingS)
+	}
+	kelvins.HttpServerSetting.SetAddr(fmt.Sprintf(":%d", grpcApp.Port))
 	grpcApp.HttpServer = setupInternal.NewHttpServer(
-		setupInternal.GRPCHandlerFunc(grpcApp.GRPCServer, grpcApp.Mux, kelvins.ServerSetting),
+		setupInternal.GRPCHandlerFunc(grpcApp.GRPCServer, grpcApp.Mux, kelvins.HttpServerSetting),
 		grpcApp.TlsConfig,
-		kelvins.ServerSetting,
+		kelvins.HttpServerSetting,
 	)
 	// queue
 	err = setupCommonQueue(nil)

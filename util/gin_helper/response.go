@@ -8,7 +8,7 @@ import (
 )
 
 func JsonResponse(ctx *gin.Context, httpCode, retCode int, data interface{}) {
-	statistics(ctx)
+	echoStatistics(ctx)
 	ctx.JSON(httpCode, gin.H{
 		"code": retCode,
 		"msg":  GetMsg(retCode),
@@ -17,11 +17,11 @@ func JsonResponse(ctx *gin.Context, httpCode, retCode int, data interface{}) {
 }
 
 func ProtoBufResponse(ctx *gin.Context, httpCode int, data interface{}) {
-	statistics(ctx)
+	echoStatistics(ctx)
 	ctx.ProtoBuf(httpCode, data)
 }
 
-func statistics(ctx *gin.Context) {
+func echoStatistics(ctx *gin.Context) {
 	startTimeVal, ok := ctx.Get(startTimeKey)
 	if ok {
 		startTime, ok := startTimeVal.(time.Time)

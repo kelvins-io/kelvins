@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"gitee.com/kelvins-io/kelvins/config/setting"
 	"io"
 	"net/http"
 	"os"
@@ -123,12 +124,18 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	}
 
 	// 5. set http server
-	kelvins.ServerSetting.SetAddr(fmt.Sprintf(":%d", httpApp.Port))
-	httpApp.HttpServer = setupInternal.NewHttpServer(
-		handler,
-		httpApp.TlsConfig,
-		kelvins.ServerSetting,
-	)
+	var httpSer *http.Server
+	if kelvins.HttpServerSetting == nil {
+		kelvins.HttpServerSetting = new(setting.HttpServerSettingS)
+	}
+	kelvins.HttpServerSetting.SetAddr(fmt.Sprintf(":%d", httpApp.Port))
+	if kelvins.HttpServerSetting != nil && kelvins.HttpServerSetting.SupportH2 {
+		logging.Info("httpApp enable http2/h2c")
+		httpSer = setupInternal.NewHttp2Server(handler, httpApp.TlsConfig, kelvins.HttpServerSetting)
+	} else {
+		httpSer = setupInternal.NewHttpServer(handler, httpApp.TlsConfig, kelvins.HttpServerSetting)
+	}
+	httpApp.HttpServer = httpSer
 
 	// 6. register event producer
 	if kelvins.EventServerAliRocketMQ != nil {
@@ -143,8 +150,8 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 
 	// 7. start server
 	network := "tcp"
-	if kelvins.ServerSetting.Network != "" {
-		network = kelvins.ServerSetting.Network
+	if kelvins.HttpServerSetting.Network != "" {
+		network = kelvins.HttpServerSetting.Network
 	}
 	kp := new(kprocess.KProcess)
 	ln, err := kp.Listen(network, fmt.Sprintf(":%d", httpApp.Port), kelvins.PIDFile)
@@ -228,7 +235,7 @@ func indexApi(writer http.ResponseWriter, request *http.Request) {
 
 func pingApi(writer http.ResponseWriter, request *http.Request) {
 	writer.WriteHeader(http.StatusOK)
-	writer.Write([]byte(time.Now().Format("2006-01-02 15:04:05")))
+	writer.Write([]byte(time.Now().Format(kelvins.ResponseTimeLayout)))
 }
 
 func ginMetricsApi(c *gin.Context) {
@@ -240,5 +247,5 @@ func ginIndexApi(c *gin.Context) {
 }
 
 func ginPingApi(c *gin.Context) {
-	gin_helper.JsonResponse(c, http.StatusOK, gin_helper.SUCCESS, time.Now().Format("2006-01-02 15:04:05"))
+	gin_helper.JsonResponse(c, http.StatusOK, gin_helper.SUCCESS, time.Now().Format(kelvins.ResponseTimeLayout))
 }

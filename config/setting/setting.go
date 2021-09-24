@@ -1,37 +1,44 @@
 package setting
 
-import "time"
+import (
+	"gitee.com/kelvins-io/common/log"
+	"time"
+)
 
-// ServerSettingS defines for grpc server.
+// ServerSettingS defines for server.
 type ServerSettingS struct {
-	AppName      string
-	Network      string
-	PIDFile      string
-	Environment  string
-	ReadTimeout  int
-	WriteTimeout int
-	IdleTimeout  int
-	addr         string
+	AppName     string
+	PIDFile     string
+	Environment string
 }
 
-func (s *ServerSettingS) GetReadTimeout() time.Duration {
+func (s *HttpServerSettingS) GetReadTimeout() time.Duration {
 	return time.Duration(s.ReadTimeout) * time.Second
 }
 
-func (s *ServerSettingS) GetWriteTimeout() time.Duration {
+func (s *HttpServerSettingS) GetWriteTimeout() time.Duration {
 	return time.Duration(s.WriteTimeout) * time.Second
 }
 
-func (s *ServerSettingS) GetIdleTimeout() time.Duration {
+func (s *HttpServerSettingS) GetIdleTimeout() time.Duration {
 	return time.Duration(s.IdleTimeout) * time.Second
 }
 
-func (s *ServerSettingS) SetAddr(addr string) {
+func (s *HttpServerSettingS) SetAddr(addr string) {
 	s.addr = addr
 }
 
-func (s *ServerSettingS) GetAddr() string {
+func (s *HttpServerSettingS) GetAddr() string {
 	return s.addr
+}
+
+type HttpServerSettingS struct {
+	Network      string
+	ReadTimeout  int
+	WriteTimeout int
+	IdleTimeout  int
+	SupportH2    bool
+	addr         string
 }
 
 type JwtSettingS struct {
@@ -40,13 +47,15 @@ type JwtSettingS struct {
 }
 
 type RPCServerParamsS struct {
-	NumServerWorkers   int64
-	ConnectionTimeout  int64 // unit second
-	DisableHealthCheck bool
+	NumServerWorkers             int64
+	ConnectionTimeout            int64 // unit second
+	DisableClientDialHealthCheck bool
+	DisableHealthServer          bool
 }
 
 type RPCAuthSettingS struct {
 	Token             string
+	ExpireSecond      int
 	TransportSecurity bool
 }
 
@@ -90,11 +99,13 @@ type MysqlSettingS struct {
 	ConnMaxLifeSecond int
 	MultiStatements   bool
 	ParseTime         bool
-	LoggerLevel       string
-	Environment       string
 	ConnectionTimeout string // time unit eg: 2h 3s
 	WriteTimeout      string // time unit eg: 2h 3s
 	ReadTimeout       string // time unit eg: 2h 3s
+	// only app use
+	LoggerLevel string
+	Environment string
+	Logger      log.LoggerContextIface
 }
 
 // RedisSettingS defines for connecting redis.
@@ -118,28 +129,32 @@ type QueueServerSettingS struct {
 
 // QueueRedisSettingS defines for redis queue.
 type QueueRedisSettingS struct {
-	Broker          string
-	DefaultQueue    string
-	ResultBackend   string
-	ResultsExpireIn int
-	DisableConsume  bool
+	Broker           string
+	DefaultQueue     string
+	ResultBackend    string
+	ResultsExpireIn  int
+	DisableConsume   bool
+	TaskRetryCount   int
+	TaskRetryTimeout int
 }
 
 // QueueAliAMQPSettingS defines for ali yun AMQP queue
 type QueueAliAMQPSettingS struct {
-	AccessKey       string
-	SecretKey       string
-	AliUid          int
-	EndPoint        string
-	VHost           string
-	DefaultQueue    string
-	ResultBackend   string
-	ResultsExpireIn int
-	Exchange        string
-	ExchangeType    string
-	BindingKey      string
-	PrefetchCount   int
-	DisableConsume  bool
+	AccessKey        string
+	SecretKey        string
+	AliUid           int
+	EndPoint         string
+	VHost            string
+	DefaultQueue     string
+	ResultBackend    string
+	ResultsExpireIn  int
+	Exchange         string
+	ExchangeType     string
+	BindingKey       string
+	PrefetchCount    int
+	TaskRetryCount   int
+	TaskRetryTimeout int
+	DisableConsume   bool
 }
 
 type QueueAMQPSettingS struct {

@@ -41,6 +41,9 @@ var LoggerSetting *setting.LoggerSettingS
 // ServerSetting is maps config section "kelvins-server" May be nil
 var ServerSetting *setting.ServerSettingS
 
+// HttpServerSetting is maps config section "kelvins-http-server" May be nil
+var HttpServerSetting *setting.HttpServerSettingS
+
 // JwtSetting is maps config section "kelvins-jwt" may be nil
 var JwtSetting *setting.JwtSettingS
 
