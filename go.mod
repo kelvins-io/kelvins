@@ -34,7 +34,7 @@ require (
 	github.com/valyala/fasthttp v1.17.0 // indirect
 	go.elastic.co/apm v1.9.0 // indirect
 	golang.org/x/net v0.0.0-20201016165138-7b1cca2348c0
-	google.golang.org/grpc v1.34.0
+	google.golang.org/grpc v1.40.0
 	gopkg.in/ini.v1 v1.51.0
 	xorm.io/xorm v1.0.3
 )
