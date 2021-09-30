@@ -51,6 +51,8 @@ const (
 	SectionRPCClientKeepaliveParams = "kelvins-rpc-client-kp"
 	// SectionRPCTransportBuffer is rpc transport buffer
 	SectionRPCTransportBuffer = "kelvins-rpc-transport-buffer"
+	// SectionRPCRateLimit is rpc rate limit
+	SectionRPCRateLimit = "kelvins-rpc-rate-limit"
 )
 
 // cfg reads file app.ini.
@@ -118,6 +120,11 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 		if sectionName == SectionRPCTransportBuffer {
 			kelvins.RPCTransportBufferSetting = new(setting.RPCTransportBufferS)
 			MapConfig(sectionName, kelvins.RPCTransportBufferSetting)
+			continue
+		}
+		if sectionName == SectionRPCRateLimit {
+			kelvins.RPCRateLimitSetting = new(setting.RPCRateLimitSettingS)
+			MapConfig(sectionName, kelvins.RPCRateLimitSetting)
 			continue
 		}
 		if sectionName == SectionLogger {

@@ -23,8 +23,8 @@ require (
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/websocket v1.4.2
-	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
-	github.com/grpc-ecosystem/grpc-gateway v1.14.7
+	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
+	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/jinzhu/gorm v1.9.15
 	github.com/prometheus/client_golang v1.7.0
 	github.com/qiniu/qmgo v0.7.0
@@ -33,7 +33,7 @@ require (
 	github.com/shirou/gopsutil v3.20.10+incompatible // indirect
 	github.com/valyala/fasthttp v1.17.0 // indirect
 	go.elastic.co/apm v1.9.0 // indirect
-	golang.org/x/net v0.0.0-20201016165138-7b1cca2348c0
+	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	google.golang.org/grpc v1.40.0
 	gopkg.in/ini.v1 v1.51.0
 	xorm.io/xorm v1.0.3

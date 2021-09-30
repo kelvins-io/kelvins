@@ -161,17 +161,24 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	grpcApp.GKelvinsLogger = kelvins.AccessLogger
 	grpcApp.GSysErrLogger = kelvins.ErrLogger
 	var debug bool
-	if grpcApp.Environment == config.DefaultEnvironmentDev || grpcApp.Environment == config.DefaultEnvironmentTest {
+	environ := grpcApp.Environment
+	if environ == config.DefaultEnvironmentDev || environ == config.DefaultEnvironmentTest {
 		debug = true
+	}
+	if kelvins.RPCRateLimitSetting == nil {
+		kelvins.RPCRateLimitSetting = new(setting.RPCRateLimitSettingS)
 	}
 	var (
 		serverUnaryInterceptors  []grpc.UnaryServerInterceptor
 		serverStreamInterceptors []grpc.StreamServerInterceptor
 		appInterceptor           = grpc_interceptor.NewAppServerInterceptor(debug, grpcApp.GKelvinsLogger, grpcApp.GKelvinsLogger)
 		authInterceptor          = middleware.NewRPCPerAuthInterceptor(grpcApp.GKelvinsLogger)
+		rateLimitParam           = kelvins.RPCRateLimitSetting
+		rateLimitInterceptor     = middleware.NewRPCRateLimitInterceptor(rateLimitParam.MaxConcurrent, rateLimitParam.MaxWaitNum, rateLimitParam.MaxWaitSecond, grpcApp.GKelvinsLogger)
 	)
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Metadata)
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Recovery)
+	serverUnaryInterceptors = append(serverUnaryInterceptors, rateLimitInterceptor.UnaryServerInterceptor())
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Logger)
 	if kelvins.RPCAuthSetting == nil {
 		kelvins.RPCAuthSetting = new(setting.RPCAuthSettingS)
@@ -182,6 +189,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	}
 	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.StreamMetadata)
 	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.RecoveryStream)
+	serverStreamInterceptors = append(serverStreamInterceptors, rateLimitInterceptor.StreamServerInterceptor())
 	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.StreamLogger)
 	serverStreamInterceptors = append(serverStreamInterceptors, authInterceptor.StreamServerInterceptor(kelvins.RPCAuthSetting))
 	if len(grpcApp.StreamServerInterceptors) > 0 {

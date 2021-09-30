@@ -53,6 +53,9 @@ var RPCServerParamsSetting *setting.RPCServerParamsS
 // RPCAuthSetting is maps config section "kelvins-rpc-auth" May be nil
 var RPCAuthSetting *setting.RPCAuthSettingS
 
+// RPCRateLimitSetting is maps config section "kelvins-rpc-rate-limit" may be nil
+var RPCRateLimitSetting *setting.RPCRateLimitSettingS
+
 // RPCServerKeepaliveParamsSetting is maps config section "kelvins-rpc-server-kp" May be nil
 var RPCServerKeepaliveParamsSetting *setting.RPCServerKeepaliveParamsS
 

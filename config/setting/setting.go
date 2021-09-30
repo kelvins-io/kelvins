@@ -59,6 +59,12 @@ type RPCAuthSettingS struct {
 	TransportSecurity bool
 }
 
+type RPCRateLimitSettingS struct {
+	MaxConcurrent int
+	MaxWaitNum    int
+	MaxWaitSecond int
+}
+
 type RPCServerKeepaliveParamsS struct {
 	PingClientIntervalTime int64
 	MaxConnectionIdle      int64
