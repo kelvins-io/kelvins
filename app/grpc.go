@@ -174,7 +174,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		appInterceptor           = grpc_interceptor.NewAppServerInterceptor(debug, grpcApp.GKelvinsLogger, grpcApp.GKelvinsLogger)
 		authInterceptor          = middleware.NewRPCPerAuthInterceptor(grpcApp.GKelvinsLogger)
 		rateLimitParam           = kelvins.RPCRateLimitSetting
-		rateLimitInterceptor     = middleware.NewRPCRateLimitInterceptor(rateLimitParam.MaxConcurrent, rateLimitParam.MaxWaitNum, rateLimitParam.MaxWaitSecond, grpcApp.GKelvinsLogger)
+		rateLimitInterceptor     = middleware.NewRPCRateLimitInterceptor(rateLimitParam.MaxConcurrent, rateLimitParam.MaxWaitNum, rateLimitParam.MaxWaitSecond)
 	)
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Metadata)
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Recovery)

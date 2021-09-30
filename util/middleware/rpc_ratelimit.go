@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"context"
 	"gitee.com/kelvins-io/common/json"
-	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/util/rpc_helper"
 	"google.golang.org/grpc"
@@ -19,10 +18,8 @@ type RPCRateLimitInterceptor struct {
 	limiter *kelvinsRateLimit
 }
 
-func NewRPCRateLimitInterceptor(maxConcurrent, maxWaitNum, maxWaitSecond int, logger log.LoggerContextIface) *RPCRateLimitInterceptor {
-	limiter := &kelvinsRateLimit{
-		logger: logger,
-	}
+func NewRPCRateLimitInterceptor(maxConcurrent, maxWaitNum, maxWaitSecond int) *RPCRateLimitInterceptor {
+	limiter := &kelvinsRateLimit{}
 	if maxWaitNum > 0 {
 		limiter.maxWaitNum = maxWaitNum
 		limiter.maxWaitSecond = maxWaitSecond
@@ -73,7 +70,6 @@ type kelvinsRateLimit struct {
 	waitQueue     *list.List
 	waitQueueLock sync.RWMutex
 	started       int32
-	logger        log.LoggerContextIface
 }
 
 func (r *kelvinsRateLimit) Limit() bool {
@@ -137,7 +133,6 @@ func (r *kelvinsRateLimit) loopQueue() {
 		if meta == nil {
 			return
 		}
-		r.logger.Info(context.TODO(), "loopQueue 取出了一个有效节点")
 		if meta.lastTime.Before(time.Now()) {
 			r.waitQueueLock.Lock()
 			r.waitQueue.Remove(curEle)
@@ -146,10 +141,8 @@ func (r *kelvinsRateLimit) loopQueue() {
 			close(meta.notify)
 			return
 		}
-		r.logger.Info(context.TODO(), "loopQueue 没有超时")
 		take := r.takeTicket()
 		if take {
-			r.logger.Info(context.TODO(), "loopQueue takeTicket")
 			if atomic.LoadInt32(&meta.notifyState) == 0 {
 				meta.notify <- struct{}{}
 			}
@@ -184,14 +177,12 @@ func (r *kelvinsRateLimit) enQueue(meta *rateWaiteMeta) bool {
 		return false
 	default:
 	}
-	r.logger.Info(context.TODO(), "enQueue 准备获取锁")
 	r.waitQueueLock.RLock()
 	queueLen := r.waitQueue.Len()
 	r.waitQueueLock.RUnlock()
 	if queueLen >= r.maxWaitNum {
 		return false
 	}
-	r.logger.Info(context.TODO(), "enQueue 获取锁 ok")
 	r.waitQueueLock.Lock()
 	r.waitQueue.PushBack(meta)
 	r.waitQueueLock.Unlock()
@@ -214,7 +205,6 @@ func (r *kelvinsRateLimit) takeTicket() bool {
 	case <-kelvins.AppCloseCh:
 		return false
 	case r.tickets <- struct{}{}:
-		r.logger.Info(context.TODO(), "takeTicket")
 		return true
 	default:
 		return false
@@ -231,7 +221,6 @@ func (r *kelvinsRateLimit) returnTicket() {
 	if r.tickets == nil {
 		return
 	}
-	r.logger.Info(context.TODO(), "returnTicket")
 	select {
 	case <-r.tickets:
 	default:
