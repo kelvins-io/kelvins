@@ -174,11 +174,13 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		appInterceptor           = grpc_interceptor.NewAppServerInterceptor(debug, grpcApp.GKelvinsLogger, grpcApp.GKelvinsLogger)
 		authInterceptor          = middleware.NewRPCPerAuthInterceptor(grpcApp.GKelvinsLogger)
 		rateLimitParam           = kelvins.RPCRateLimitSetting
-		rateLimitInterceptor     = middleware.NewRPCRateLimitInterceptor(rateLimitParam.MaxConcurrent, rateLimitParam.MaxWaitNum, rateLimitParam.MaxWaitSecond)
+		rateLimitInterceptor     = middleware.NewRPCRateLimitInterceptor(rateLimitParam.MaxConcurrent)
 	)
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Metadata)
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Recovery)
-	serverUnaryInterceptors = append(serverUnaryInterceptors, rateLimitInterceptor.UnaryServerInterceptor())
+	if rateLimitParam.MaxConcurrent > 0 {
+		serverUnaryInterceptors = append(serverUnaryInterceptors, rateLimitInterceptor.UnaryServerInterceptor())
+	}
 	serverUnaryInterceptors = append(serverUnaryInterceptors, appInterceptor.Logger)
 	if kelvins.RPCAuthSetting == nil {
 		kelvins.RPCAuthSetting = new(setting.RPCAuthSettingS)
@@ -189,7 +191,9 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 	}
 	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.StreamMetadata)
 	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.RecoveryStream)
-	serverStreamInterceptors = append(serverStreamInterceptors, rateLimitInterceptor.StreamServerInterceptor())
+	if rateLimitParam.MaxConcurrent > 0 {
+		serverStreamInterceptors = append(serverStreamInterceptors, rateLimitInterceptor.StreamServerInterceptor())
+	}
 	serverStreamInterceptors = append(serverStreamInterceptors, appInterceptor.StreamLogger)
 	serverStreamInterceptors = append(serverStreamInterceptors, authInterceptor.StreamServerInterceptor(kelvins.RPCAuthSetting))
 	if len(grpcApp.StreamServerInterceptors) > 0 {

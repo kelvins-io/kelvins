@@ -9,4 +9,5 @@ const (
 	ErrorTokenInvalid = 4003
 	ErrorTokenExpire  = 4004
 	ErrorUserNotExist = 4005
+	TooManyRequests   = 4006
 )

@@ -15,6 +15,8 @@ const (
 	SectionServer = "kelvins-server"
 	// SectionHttpServer is a section name for http
 	SectionHttpServer = "kelvins-http-server"
+	// SectionHttpRateLimit is a section mame for http
+	SectionHttpRateLimit = "kelvins-http-rate-limit"
 	// SectionLogger is a section name for logger.
 	SectionLogger = "kelvins-logger"
 	// SectionMysql is a sectoin name for mysql.
@@ -86,6 +88,10 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 		if sectionName == SectionHttpServer {
 			kelvins.HttpServerSetting = new(setting.HttpServerSettingS)
 			MapConfig(sectionName, kelvins.HttpServerSetting)
+		}
+		if sectionName == SectionHttpRateLimit {
+			kelvins.HttpRateLimitSetting = new(setting.HttpRateLimitSettingS)
+			MapConfig(sectionName, kelvins.HttpRateLimitSetting)
 		}
 		if sectionName == SectionJwt {
 			kelvins.JwtSetting = new(setting.JwtSettingS)

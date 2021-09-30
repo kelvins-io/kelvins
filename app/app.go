@@ -159,7 +159,10 @@ func setupCommonVars(application *kelvins.Application) error {
 	if kelvins.MysqlSetting != nil && kelvins.MysqlSetting.Host != "" {
 		kelvins.MysqlSetting.LoggerLevel = application.LoggerLevel
 		kelvins.MysqlSetting.Environment = application.Environment
-		logger, _ := log.GetCustomLogger("db-log", "mysql")
+		logger, err := log.GetCustomLogger("db-log", "mysql")
+		if err != nil {
+			return err
+		}
 		kelvins.MysqlSetting.Logger = logger
 		kelvins.GORM_DBEngine, err = setup.NewMySQLWithGORM(kelvins.MysqlSetting)
 		kelvins.XORM_DBEngine, err = setup.NewMySQLWithXORM(kelvins.MysqlSetting)

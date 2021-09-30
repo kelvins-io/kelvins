@@ -44,6 +44,9 @@ var ServerSetting *setting.ServerSettingS
 // HttpServerSetting is maps config section "kelvins-http-server" May be nil
 var HttpServerSetting *setting.HttpServerSettingS
 
+// HttpRateLimitSetting is maps config section "kelvins-http-rate-limit" may be nil
+var HttpRateLimitSetting *setting.HttpRateLimitSettingS
+
 // JwtSetting is maps config section "kelvins-jwt" may be nil
 var JwtSetting *setting.JwtSettingS
 

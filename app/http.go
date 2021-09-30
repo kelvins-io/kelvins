@@ -99,6 +99,9 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		handler = httpGinEng
 		httpGinEng.Use(gin_helper.Metadata())
 		httpGinEng.Use(gin_helper.Cors())
+		if kelvins.HttpRateLimitSetting != nil && kelvins.HttpRateLimitSetting.MaxConcurrent > 0 {
+			httpGinEng.Use(gin_helper.RateLimit(kelvins.HttpRateLimitSetting.MaxConcurrent))
+		}
 		if isMonitor {
 			pprof.Register(httpGinEng, "/debug")
 			httpGinEng.GET("/debug/metrics", ginMetricsApi)

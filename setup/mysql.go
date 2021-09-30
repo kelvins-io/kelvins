@@ -119,7 +119,7 @@ var logBufPool = sync.Pool{
 var gormLoggerCtx = context.Background()
 
 func (l *gormLogger) Print(vv ...interface{}) {
-	l.logger.Info(gormLoggerCtx, "[gorm] ", vv)
+	l.logger.Info(gormLoggerCtx, vv)
 	if l.out != nil {
 		buf := logBufPool.Get().(*[]byte)
 		defer logBufPool.Put(buf)
@@ -232,7 +232,7 @@ type xormLogger struct {
 }
 
 func (l *xormLogger) Write(p []byte) (n int, err error) {
-	l.logger.Info(xormLoggerCtx, "[xorm] ", string(p))
+	l.logger.Info(xormLoggerCtx, string(p))
 	return 0, nil
 }
 

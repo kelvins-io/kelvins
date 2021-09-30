@@ -6,10 +6,10 @@ go/golang微服务框架
 ### 支持特性
 注册服务，发现服务，grpc/http gateway，cron，queue，http/gin服务（兼容h1.1，h2），插拔式配置加载，双orm支持，mysql，mongo支持，事件总线，日志，异步任务池，   
 Prometheus/pprof监控，进程优雅重启，应用自定义配置，启动flag参数指定，应用hook，工具类（由kelvins-io/common支持），全局变量vars，   
-在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool，gRPC服务端&客户端参数配置，kelvins-tools工具箱
+在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool，gRPC服务端&客户端参数配置，在线服务限流，kelvins-tools工具箱
 
 #### 即将支持
-限流，熔断，异常接入sentry
+熔断，异常接入sentry
 
 ### 软件环境
 > go 1.13.15+
@@ -94,6 +94,14 @@ ReadTimeout = 30
 WriteTimeout = 30
 IdleTimeout = 30
 SupportH2 = false
+```
+
+kelvins-http-rate-limit   
+配置http服务限流   
+MaxConcurrent 最大并发数（大于0有效）   
+```ini
+[kelvins-http-rate-limit]
+MaxConcurrent = 0
 ```
 
 kelvins-mysql   
@@ -273,6 +281,14 @@ DisableHealthServer = false
 DisableClientDialHealthCheck = false
 ```
 
+kelvins-rpc-rate-limit   
+rpc服务限流   
+MaxConcurrent 最大并发数（大于0有效）
+```ini
+[kelvins-_rpc_-rate-limit]
+MaxConcurrent = 0
+```
+
 kelvins-rpc-server-kp   
 RPC服务端keepalive参数   
 PingClientIntervalTime 在这段时间后客户端没有任何活动服务器将主动ping客户端，单位秒   
@@ -441,6 +457,7 @@ http/h2服务调用 /hello接口 =>
 2021-9-18 | 运行环境优化，http优化 | https://gitee.com/cristiane | 根据运行环境日志打印
 2021-9-20 | rpc，http注入metadata，服务注册优化 | https://gitee.com/cristiane | 诸如request-id，version，请求耗时等
 2021-9-25 | 重构rpc服务拦截器，http服务支持启用H2 | https://gitee.com/cristiane | 拦截器，http2
+2021-10-1 | RPC，http服务支持限流器 | https://gitee.com/cristiane | 限流
 
 ### 业务应用
 micro-mall-api系列共计16+个服务：https://gitee.com/cristiane/micro-mall-api

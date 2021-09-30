@@ -41,6 +41,10 @@ type HttpServerSettingS struct {
 	addr         string
 }
 
+type HttpRateLimitSettingS struct {
+	MaxConcurrent int
+}
+
 type JwtSettingS struct {
 	Secret            string
 	TokenExpireSecond int
@@ -61,8 +65,6 @@ type RPCAuthSettingS struct {
 
 type RPCRateLimitSettingS struct {
 	MaxConcurrent int
-	MaxWaitNum    int
-	MaxWaitSecond int
 }
 
 type RPCServerKeepaliveParamsS struct {
