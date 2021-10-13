@@ -142,7 +142,7 @@ WriteTimeout = 30
 kelvins-mongodb   
 MongoDB：连接配置信息   
 ```ini
-[mongodb-config]
+[kelvins-mongodb]
 Uri = "mongodb://127.0.0.1:27017"
 Username = "admin"
 Password = "fadfadsf3"
