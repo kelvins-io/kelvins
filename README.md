@@ -285,7 +285,7 @@ kelvins-rpc-rate-limit
 rpc服务限流   
 MaxConcurrent 最大并发数（大于0有效）
 ```ini
-[kelvins-_rpc_-rate-limit]
+[kelvins-rpc-rate-limit]
 MaxConcurrent = 0
 ```
 
