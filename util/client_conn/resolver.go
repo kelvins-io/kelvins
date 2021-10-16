@@ -9,13 +9,14 @@ import (
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb/etcdconfig"
 	"gitee.com/kelvins-io/kelvins/internal/vars"
+	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
 	"time"
 )
 
 const (
 	kelvinsScheme   = "kelvins-scheme"
-	minResolverRate = 5 * time.Second
+	minResolverRate = 3 * time.Second
 )
 
 type kelvinsResolverBuilder struct{}
@@ -31,6 +32,8 @@ func (*kelvinsResolverBuilder) Build(target resolver.Target, cc resolver.ClientC
 	}
 
 	go r.watcher()
+	go r.listenEtcd()
+
 	r.ResolveNow(resolver.ResolveNowOptions{})
 
 	return r, nil
@@ -106,9 +109,11 @@ func (r *kelvinsResolver) resolverServiceConfig() {
 
 	address := make([]resolver.Address, 0, len(serviceConfigs))
 	for _, value := range serviceConfigs {
-		addr := fmt.Sprintf("%v:%v", serviceName, value.ServicePort)
+		addr := fmt.Sprintf("%v:%v", value.ServiceIP, value.ServicePort)
+		// 可以在服务启动时注入机器info，然后在这里把机器info发给gRPC用于balance判断
 		address = append(address, resolver.Address{
-			Addr: addr,
+			Addr:       addr,
+			Attributes: attributes.New(kelvins.RPCMetadataServiceNode, addr),
 		})
 	}
 	if len(address) > 0 {
@@ -117,6 +122,12 @@ func (r *kelvinsResolver) resolverServiceConfig() {
 }
 
 func (r *kelvinsResolver) ResolveNow(o resolver.ResolveNowOptions) {
+	// 防止rn未来得及消费
+	select {
+	case <-r.rn:
+	default:
+	}
+
 	select {
 	case r.rn <- struct{}{}:
 	default:
@@ -124,6 +135,20 @@ func (r *kelvinsResolver) ResolveNow(o resolver.ResolveNowOptions) {
 }
 
 func (r *kelvinsResolver) Close() { r.cancel() }
+
+func (r *kelvinsResolver) listenEtcd() {
+	serviceName := r.target.Endpoint
+	etcdServerUrls := config.GetEtcdV3ServerURLs()
+	serviceLB := slb.NewService(etcdServerUrls, serviceName)
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	notice, err := serviceConfigClient.Watch(r.ctx)
+	if err != nil {
+		return
+	}
+	for range notice {
+		r.ResolveNow(resolver.ResolveNowOptions{})
+	}
+}
 
 func init() {
 	resolver.Register(&kelvinsResolverBuilder{})

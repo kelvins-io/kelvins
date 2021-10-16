@@ -2,6 +2,7 @@ package startup
 
 import (
 	"flag"
+	"fmt"
 	"gitee.com/kelvins-io/kelvins/internal/logging"
 	"io/ioutil"
 	"os"
@@ -26,6 +27,10 @@ func ParseCliCommand(pidFile string) (next bool, err error) {
 	switch cmd {
 	case startUpStart:
 		next = true
+		errLook := lookupFile(pidFile)
+		if errLook == nil {
+			err = fmt.Errorf("process pid file already exist")
+		}
 		return
 	case startUpReStart:
 	case startUpStop:
@@ -67,4 +72,9 @@ func processControl(pid int, signal os.Signal) error {
 		return err
 	}
 	return p.Signal(signal)
+}
+
+func lookupFile(pidFile string) (err error) {
+	_, err = os.Stat(pidFile)
+	return
 }

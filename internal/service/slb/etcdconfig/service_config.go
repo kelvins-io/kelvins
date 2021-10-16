@@ -7,6 +7,7 @@ import (
 	"gitee.com/kelvins-io/common/json"
 	"gitee.com/kelvins-io/kelvins/internal/service/slb"
 	"gitee.com/kelvins-io/kelvins/internal/util"
+	"gitee.com/kelvins-io/kelvins/internal/vars"
 	"github.com/etcd-io/etcd/client"
 	"strings"
 	"time"
@@ -27,6 +28,8 @@ type ServiceConfigClient struct {
 type Config struct {
 	ServiceVersion string `json:"service_version"`
 	ServicePort    string `json:"service_port"`
+	ServiceIP      string `json:"service_ip"`
+	ServiceKind    string `json:"service_kind"`
 	LastModified   string `json:"last_modified"`
 }
 
@@ -127,6 +130,52 @@ func (s *ServiceConfigClient) ListConfigs() (map[string]*Config, error) {
 
 func (s *ServiceConfigClient) GetConfigs() (map[string]*Config, error) {
 	return s.listConfigs(s.GetKeyName(s.ServiceLB.ServerName))
+}
+
+func (s *ServiceConfigClient) Watch(ctx context.Context) (<-chan struct{}, error) {
+	notice := make(chan struct{}, 1)
+	cli, err := util.NewEtcd(s.ServiceLB.EtcdServerUrl)
+	if err != nil {
+		return notice, fmt.Errorf("util.NewEtcd err: %v，etcdUrl: %v", err, s.ServiceLB.EtcdServerUrl)
+	}
+
+	kapi := client.NewKeysAPI(cli)
+	ctx, cancel := context.WithCancel(ctx)
+	watcher := kapi.Watcher(s.GetKeyName(s.ServiceLB.ServerName), &client.WatcherOptions{
+		AfterIndex: 0,
+		Recursive:  true,
+	})
+	go func() {
+		defer func() {
+			cancel()
+			close(notice)
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-vars.AppCloseCh:
+				return
+			default:
+			}
+			resp, err := watcher.Next(ctx)
+			if err != nil {
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+
+			if strings.ToLower(resp.Action) != "get" {
+				// 防止notice来不及被客户端消费
+				select {
+				case <-notice:
+				default:
+				}
+				notice <- struct{}{}
+			}
+		}
+	}()
+
+	return notice, nil
 }
 
 func (s *ServiceConfigClient) listConfigs(key string) (map[string]*Config, error) {

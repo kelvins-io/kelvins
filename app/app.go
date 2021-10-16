@@ -17,9 +17,11 @@ import (
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/goroutine"
 	"gitee.com/kelvins-io/kelvins/util/startup"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -142,6 +144,7 @@ func initApplication(application *kelvins.Application) error {
 // setup AppCloseCh pid
 func setupApplicationProcess(application *kelvins.Application) {
 	kelvins.AppCloseCh = appCloseCh
+	vars.AppCloseCh = appCloseCh
 	vars.Version = kelvins.Version
 	if kelvins.ServerSetting != nil {
 		if kelvins.ServerSetting.PIDFile != "" {
@@ -288,23 +291,9 @@ func appShutdown(application *kelvins.Application, port int64) error {
 		}
 	}
 	if application.Type == kelvins.AppTypeHttp || application.Type == kelvins.AppTypeGrpc {
-		etcdServerUrls := config.GetEtcdV3ServerURLs()
-		if etcdServerUrls == "" {
-			if kelvins.ErrLogger != nil {
-				kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
-			}
-			return fmt.Errorf("etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
-		}
-		serviceLB := slb.NewService(etcdServerUrls, application.Name)
-		serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
-		sequence := fmt.Sprintf("%d", port)
-		err := serviceConfigClient.ClearConfig(sequence)
+		err := appUnRegisterServiceToEtcd(application.Name, port)
 		if err != nil {
-			if kelvins.ErrLogger != nil {
-				kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfigClient ClearConfig err: %v, key: %v",
-					err, serviceConfigClient.GetKeyName(application.Name, sequence))
-			}
-			return fmt.Errorf("etcd clear service port exception")
+			return err
 		}
 	}
 	if kelvins.GPool != nil {
@@ -440,7 +429,30 @@ func appRegisterEventHandler(register func(event.EventServerIface) error, appTyp
 	}
 }
 
-func appRegisterServiceToEtcd(appName string, initialPort int64) (int64, error) {
+func appUnRegisterServiceToEtcd(appName string, port int64) error {
+	etcdServerUrls := config.GetEtcdV3ServerURLs()
+	if etcdServerUrls == "" {
+		if kelvins.ErrLogger != nil {
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+		}
+		return fmt.Errorf("etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+	}
+	serviceLB := slb.NewService(etcdServerUrls, appName)
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	sequence := fmt.Sprintf("%d", port)
+	err := serviceConfigClient.ClearConfig(sequence)
+	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
+		if kelvins.ErrLogger != nil {
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfigClient ClearConfig err: %v, key: %v",
+				err, serviceConfigClient.GetKeyName(appName, sequence))
+		}
+		return fmt.Errorf("etcd clear service port exception")
+	}
+
+	return nil
+}
+
+func appRegisterServiceToEtcd(serviceKind, appName string, initialPort int64) (int64, error) {
 	var flagPort int64
 	if initialPort > 0 { // use self define port to start process
 		flagPort = initialPort
@@ -470,9 +482,15 @@ func appRegisterServiceToEtcd(appName string, initialPort int64) (int64, error) 
 		}
 		return flagPort, fmt.Errorf("etcd register service port(%v) exist", currentPort)
 	}
+	serviceIP, err := getOutBoundIP()
+	if err != nil {
+		return 0, fmt.Errorf("lookup out bound ip err(%v)", err)
+	}
 	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
 		ServiceVersion: kelvins.Version,
 		ServicePort:    currentPort,
+		ServiceIP:      serviceIP,
+		ServiceKind:    serviceKind,
 		LastModified:   time.Now().Format(kelvins.ResponseTimeLayout),
 	})
 	if err != nil {
@@ -482,6 +500,17 @@ func appRegisterServiceToEtcd(appName string, initialPort int64) (int64, error) 
 		err = fmt.Errorf("etcd register service port(%v) exception", currentPort)
 	}
 	return flagPort, err
+}
+
+func getOutBoundIP() (ip string, err error) {
+	// broadcast
+	conn, err := net.Dial("udp", "255.255.255.255:53")
+	if err != nil {
+		return
+	}
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	ip = strings.Split(localAddr.String(), ":")[0]
+	return
 }
 
 var (

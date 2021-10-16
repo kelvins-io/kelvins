@@ -52,7 +52,6 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 	if err != nil {
 		logging.Infof("HttpApp appShutdown err: %v\n", err)
 	}
-	logging.Info("HttpApp appShutdown over")
 }
 
 func runHTTP(httpApp *kelvins.HTTPApplication) error {
@@ -74,21 +73,27 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	}
 
 	// 3. set init service port
-	portEtcd, err := appRegisterServiceToEtcd(httpApp.Name, httpApp.Port)
+	portEtcd, err := appRegisterServiceToEtcd(kelvins.AppTypeText[httpApp.Type], httpApp.Name, httpApp.Port)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err := appUnRegisterServiceToEtcd(httpApp.Name, httpApp.Port)
+		if err != nil {
+			return
+		}
+	}()
 	httpApp.Port = portEtcd
 
 	// 4. register http
 	var handler http.Handler
-	isMonitor := false
+	debug := false
 	if kelvins.ServerSetting != nil {
 		switch kelvins.ServerSetting.Environment {
 		case config.DefaultEnvironmentDev:
-			isMonitor = true
+			debug = true
 		case config.DefaultEnvironmentTest:
-			isMonitor = true
+			debug = true
 		default:
 		}
 	}
@@ -97,12 +102,12 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		ginEngineInit()
 		var httpGinEng = gin.Default()
 		handler = httpGinEng
-		httpGinEng.Use(gin_helper.Metadata())
+		httpGinEng.Use(gin_helper.Metadata(debug))
 		httpGinEng.Use(gin_helper.Cors())
 		if kelvins.HttpRateLimitSetting != nil && kelvins.HttpRateLimitSetting.MaxConcurrent > 0 {
 			httpGinEng.Use(gin_helper.RateLimit(kelvins.HttpRateLimitSetting.MaxConcurrent))
 		}
-		if isMonitor {
+		if debug {
 			pprof.Register(httpGinEng, "/debug")
 			httpGinEng.GET("/debug/metrics", ginMetricsApi)
 		}
@@ -110,7 +115,7 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		httpGinEng.GET("/ping", ginPingApi)
 		httpApp.RegisterHttpGinRoute(httpGinEng)
 	} else {
-		httpApp.Mux = setupInternal.NewServerMux(isMonitor)
+		httpApp.Mux = setupInternal.NewServerMux(debug)
 		handler = httpApp.Mux
 		httpApp.Mux.HandleFunc("/", indexApi)
 		httpApp.Mux.HandleFunc("/ping", pingApi)

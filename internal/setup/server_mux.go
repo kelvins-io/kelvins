@@ -7,9 +7,9 @@ import (
 )
 
 // NewServerMux ...
-func NewServerMux(isMonitor bool) *http.ServeMux {
+func NewServerMux(debug bool) *http.ServeMux {
 	mux := http.NewServeMux()
-	if !isMonitor {
+	if !debug {
 		return mux
 	}
 	mux = metrics_mux.GetElasticMux(mux)
@@ -19,8 +19,8 @@ func NewServerMux(isMonitor bool) *http.ServeMux {
 }
 
 // NewGatewayServerMux ...
-func NewGatewayServerMux(gateway *runtime.ServeMux, isMonitor bool) *http.ServeMux {
-	mux := NewServerMux(isMonitor)
+func NewGatewayServerMux(gateway *runtime.ServeMux, debug bool) *http.ServeMux {
+	mux := NewServerMux(debug)
 	mux.Handle("/", gateway)
 	return mux
 }

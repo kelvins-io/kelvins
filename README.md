@@ -6,7 +6,7 @@ go/golang微服务框架
 ### 支持特性
 注册服务，发现服务，grpc/http gateway，cron，queue，http/gin服务（兼容h1.1，h2），插拔式配置加载，双orm支持，mysql，mongo支持，事件总线，日志，异步任务池，   
 Prometheus/pprof监控，进程优雅重启，应用自定义配置，启动flag参数指定，应用hook，工具类（由kelvins-io/common支持），全局变量vars，   
-在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool，gRPC服务端&客户端参数配置，在线服务限流，kelvins-tools工具箱
+在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool，gRPC服务端&客户端参数配置，在线服务限流，kelvins-tools工具箱，watch服务在线状态
 
 #### 即将支持
 熔断，异常接入sentry
@@ -404,7 +404,8 @@ Grpc-Metadata-Content-Type: application/grpc
 Grpc-Metadata-Trailer: Grpc-Status
 Grpc-Metadata-Trailer: Grpc-Message
 Grpc-Metadata-Trailer: Grpc-Status-Details-Bin
-Grpc-Metadata-X-Kelvins-Service-Name: kelvins-template
+Grpc-Metadata-X-Service-Name: kelvins-template
+Grpc-Metadata-X-Service-Node: 192.168.0.101(hostname)
 Grpc-Metadata-X-Powered-By: kelvins/rpc 1.5.10
 Grpc-Metadata-X-Request-Id: 5664beaa-1c43-4eec-98d7-c611972c7303
 Trailer: Grpc-Trailer-X-Response-Time
@@ -420,7 +421,7 @@ curl http://service_name:service_port/index -i
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
 X-Handle-Time: 0.000097/s
-X-Kelvins-Service-Name: kelvins-template-http
+X-Service-Name: kelvins-template-http
 X-Powered-By: kelvins/http(gin) 1.5.10
 X-Request-Id: 69b8e804-4c5b-4091-b485-88400fceedc7
 X-Response-Time: 2021-09-20 16:19:39.783
@@ -455,12 +456,16 @@ http/h2服务调用 /hello接口 =>
 2021-9-1 | 若干更新 | https://gitee.com/cristiane | rpc日志对齐&rpc server参数配置化&启动优化
 2021-9-11 | 若干更新 | https://gitee.com/cristiane | client_service,print,queue等若干优化
 2021-9-18 | 运行环境优化，http优化 | https://gitee.com/cristiane | 根据运行环境日志打印
-2021-9-20 | rpc，http注入metadata，服务注册优化 | https://gitee.com/cristiane | 诸如request-id，version，请求耗时等
+2021-9-20 | rpc，http注入metadata，服务注册优化 | https://gitee.com/cristiane | 诸如request-id，version，请求耗时，服务名，服务节点等
 2021-9-25 | 重构rpc服务拦截器，http服务支持启用H2 | https://gitee.com/cristiane | 拦截器，http2
 2021-10-1 | RPC，http服务支持限流器 | https://gitee.com/cristiane | 限流
+2021-10-15 | watch在线服务在线状态 | https://gitee.com/cristiane | 监听etcd服务节点触发resolver
+2021-10-15 | 在线服务注册etcd增加所处网络IP，服务类型 | https://gitee.com/cristiane | 不需要再单独配置服务host
+
+
 
 ### 业务应用
-micro-mall-api系列共计16+个服务：https://gitee.com/cristiane/micro-mall-api
+micro-mall-api系列共计22+个服务：https://gitee.com/cristiane/micro-mall-api
 
 ###技术交流
 QQ群：852053097   

@@ -12,8 +12,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"net"
+	"os"
 	"regexp"
 	"runtime/debug"
+	"strings"
 	"time"
 )
 
@@ -49,8 +52,8 @@ func (i *AppServerInterceptor) Logger(ctx context.Context, req interface{}, info
 		i.echoStatistics(ctx, incomeTime, outcomeTime)
 		// unary interceptor record req resp err
 		if err != nil {
-			s, _ := status.FromError(err)
 			if i.errLogger != nil {
+				s, _ := status.FromError(err)
 				i.errLogger.Errorf(
 					ctx,
 					"grpc access response err：%s, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, req: %s, response：%s, details: %s",
@@ -104,8 +107,8 @@ func (i *AppServerInterceptor) StreamLogger(srv interface{}, ss grpc.ServerStrea
 		outcomeTime := time.Now()
 		i.echoStatistics(ss.Context(), incomeTime, outcomeTime)
 		if err != nil {
-			s, _ := status.FromError(err)
 			if i.errLogger != nil {
+				s, _ := status.FromError(err)
 				// stream interceptor only record error
 				i.errLogger.Errorf(
 					ss.Context(),
@@ -132,7 +135,7 @@ func (i *AppServerInterceptor) StreamLogger(srv interface{}, ss grpc.ServerStrea
 		}
 	}()
 
-	err = handler(srv, NewStreamWrapper(ss.Context(), i.accessLogger, i.errLogger, ss, info, requestMeta, i.debug))
+	err = handler(srv, newStreamWrapper(ss.Context(), i.accessLogger, i.errLogger, ss, info, requestMeta, i.debug))
 	return err
 }
 
@@ -163,23 +166,27 @@ func (i *AppServerInterceptor) RecoveryStream(srv interface{}, ss grpc.ServerStr
 		}
 	}()
 
-	return handler(srv, ss)
+	return handler(srv, newStreamRecoverWrapper(ss.Context(), i.errLogger, ss, info, requestMeta, i.debug))
 }
 
 func (i *AppServerInterceptor) handleMetadata(ctx context.Context) (rId string) {
 	// request id
-	okRequestId, requestId := getRPCRequestId(ctx)
-	if !okRequestId {
+	existRequestId, requestId := getRPCRequestId(ctx)
+	if !existRequestId {
 		// set request id to server
 		md := metadata.Pairs(kelvins.RPCMetadataRequestId, requestId)
 		ctx = metadata.NewOutgoingContext(ctx, md)
 	}
+
 	// return client info
 	header := metadata.New(map[string]string{
 		kelvins.RPCMetadataRequestId:   requestId,
 		kelvins.RPCMetadataServiceName: kelvins.AppName,
 		kelvins.RPCMetadataPowerBy:     "kelvins/rpc " + vars.Version,
 	})
+	if i.debug {
+		header.Set(kelvins.RPCMetadataServiceNode, getRPCNodeInfo())
+	}
 	grpc.SetHeader(ctx, header)
 
 	return requestId
@@ -191,10 +198,31 @@ func (i *AppServerInterceptor) echoStatistics(ctx context.Context, incomeTime, o
 	grpc.SetTrailer(ctx, md)
 }
 
+func getRPCNodeInfo() (nodeInfo string) {
+	nodeInfo = fmt.Sprintf("%v(%v)", outBoundIP, hostName)
+	return
+}
+
+var (
+	hostName, _   = os.Hostname()
+	outBoundIP, _ = getOutBoundIP()
+)
+
+func getOutBoundIP() (ip string, err error) {
+	// broadcast
+	conn, err := net.Dial("udp", "255.255.255.255:53")
+	if err != nil {
+		return
+	}
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	ip = strings.Split(localAddr.String(), ":")[0]
+	return
+}
+
 func getRPCRequestId(ctx context.Context) (ok bool, requestId string) {
 	ok = false
-	md, ok := metadata.FromIncomingContext(ctx)
-	if ok {
+	md, exist := metadata.FromIncomingContext(ctx)
+	if exist {
 		if t, ok := md[kelvins.RPCMetadataRequestId]; ok {
 			for _, e := range t {
 				if e != "" {
@@ -211,6 +239,50 @@ func getRPCRequestId(ctx context.Context) (ok bool, requestId string) {
 	return
 }
 
+type streamRecoverWrapper struct {
+	accessLogger, errLogger log.LoggerContextIface
+	ss                      grpc.ServerStream
+	ctx                     context.Context
+	info                    *grpc.StreamServerInfo
+	requestMeta             *rpc_helper.RequestMeta
+	debug                   bool
+}
+
+func newStreamRecoverWrapper(ctx context.Context,
+	errLogger log.LoggerContextIface,
+	ss grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	requestMeta *rpc_helper.RequestMeta,
+	debug bool) *streamRecoverWrapper {
+	return &streamRecoverWrapper{ctx: ctx, errLogger: errLogger, ss: ss, info: info, requestMeta: requestMeta, debug: debug}
+}
+func (s *streamRecoverWrapper) SetHeader(md metadata.MD) error  { return s.ss.SetHeader(md) }
+func (s *streamRecoverWrapper) SendHeader(md metadata.MD) error { return s.ss.SendHeader(md) }
+func (s *streamRecoverWrapper) SetTrailer(md metadata.MD)       { s.ss.SetTrailer(md) }
+func (s *streamRecoverWrapper) Context() context.Context        { return s.ss.Context() }
+func (s *streamRecoverWrapper) SendMsg(m interface{}) error {
+	defer func() {
+		if e := recover(); e != nil {
+			if s.errLogger != nil {
+				s.errLogger.Errorf(s.ctx, "grpc stream/send panic err: %v, grpc method: %s, requestMeta: %v, data: %v, stack: %s",
+					e, s.info.FullMethod, json.MarshalToStringNoError(s.requestMeta), json.MarshalToStringNoError(m), string(debug.Stack()[:]))
+			}
+		}
+	}()
+	return s.ss.SendMsg(m)
+}
+func (s *streamRecoverWrapper) RecvMsg(m interface{}) error {
+	defer func() {
+		if e := recover(); e != nil {
+			if s.errLogger != nil {
+				s.errLogger.Errorf(s.ctx, "grpc stream/recv panic err: %v, grpc method: %s, requestMeta: %v, data: %v, stack: %s",
+					e, s.info.FullMethod, json.MarshalToStringNoError(s.requestMeta), json.MarshalToStringNoError(m), string(debug.Stack()[:]))
+			}
+		}
+	}()
+	return s.ss.RecvMsg(m)
+}
+
 type streamWrapper struct {
 	accessLogger, errLogger log.LoggerContextIface
 	ss                      grpc.ServerStream
@@ -220,7 +292,7 @@ type streamWrapper struct {
 	debug                   bool
 }
 
-func NewStreamWrapper(ctx context.Context,
+func newStreamWrapper(ctx context.Context,
 	accessLogger, errLogger log.LoggerContextIface,
 	ss grpc.ServerStream,
 	info *grpc.StreamServerInfo,
@@ -242,8 +314,8 @@ func (s *streamWrapper) SendMsg(m interface{}) error {
 	defer func() {
 		outcomeTime = time.Now()
 		if err != nil {
-			sts, _ := status.FromError(err)
 			if s.errLogger != nil {
+				sts, _ := status.FromError(err)
 				s.errLogger.Errorf(
 					s.ctx,
 					"grpc stream/send err：%s, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, data: %s, details: %s",
@@ -284,8 +356,8 @@ func (s *streamWrapper) RecvMsg(m interface{}) error {
 	defer func() {
 		outcomeTime = time.Now()
 		if err != nil {
-			sts, _ := status.FromError(err)
 			if s.errLogger != nil {
+				sts, _ := status.FromError(err)
 				s.errLogger.Errorf(
 					s.ctx,
 					"grpc stream/recv err：%s, grpc method: %s, requestMeta: %v, outcomeTime: %v, handleTime: %f/s, data: %s, details: %s",

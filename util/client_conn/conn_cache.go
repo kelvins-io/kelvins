@@ -16,7 +16,7 @@ var (
 
 const (
 	internalCachePrefix = "kelvins-%v"
-	internalCacheExpire = 24 * time.Hour
+	internalCacheExpire = 3 * time.Hour
 )
 
 func init() {

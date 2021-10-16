@@ -2,17 +2,20 @@ package vars
 
 import "gitee.com/kelvins-io/common/log"
 
-// Version this vars fork root path vars.go
+// Version is internal vars fork root path vars.go
 var Version = "1.5.x"
 
-// FrameworkLogger is a global var for Framework log
+// FrameworkLogger is a internal var for Framework log
 var FrameworkLogger log.LoggerContextIface
 
-// ErrLogger is a global vars for application to log err msg.
+// ErrLogger is a internal vars for application to log err msg.
 var ErrLogger log.LoggerContextIface
 
-// AccessLogger is a global vars for application to log access log
+// AccessLogger is a internal vars for application to log access log
 var AccessLogger log.LoggerContextIface
 
-// BusinessLogger is a global vars for application to log business log
+// BusinessLogger is a internal vars for application to log business log
 var BusinessLogger log.LoggerContextIface
+
+// AppCloseCh is a internal vars for app close notice
+var AppCloseCh chan struct{}

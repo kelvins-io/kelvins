@@ -43,7 +43,6 @@ func RunCronApplication(application *kelvins.CronApplication) {
 	if err != nil {
 		logging.Infof("cronApp appShutdown err: %v\n", err)
 	}
-	logging.Info("cronApp appShutdown over")
 }
 
 // runCron prepares cron application.

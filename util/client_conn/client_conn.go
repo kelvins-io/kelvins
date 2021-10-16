@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/keepalive"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,10 @@ import (
 var (
 	optsDefault []grpc.DialOption
 	optsStartup []grpc.DialOption
+)
+
+var (
+	Debug bool
 )
 
 var (
@@ -48,6 +53,9 @@ func NewConnClient(serviceName string) (*ConnClient, error) {
 func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	conn, err := getRPCConn(c.ServerName)
 	if err == nil && justConnEffective(conn) {
+		if Debug {
+			log.Println(Green("[kelvins] ConnClient conn from cache and conn is effective"))
+		}
 		return conn, nil
 	}
 
@@ -61,7 +69,14 @@ func (c *ConnClient) GetConn(ctx context.Context, opts ...grpc.DialOption) (*grp
 
 	conn, err = getRPCConn(c.ServerName)
 	if err == nil && justConnEffective(conn) {
+		if Debug {
+			log.Println(Green("[kelvins] ConnClient conn from cache and conn is effective"))
+		}
 		return conn, nil
+	}
+
+	if Debug {
+		log.Println(Red("[kelvins] ConnClient ConnClient from origin"))
 	}
 
 	// priority order: optsStartup > opts > optsDefault
@@ -102,7 +117,7 @@ func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err 
 		return
 	}
 	for _, value := range serviceConfigs {
-		endpoints = append(endpoints, value.ServicePort)
+		endpoints = append(endpoints, fmt.Sprintf("%v:%v", value.ServiceIP, value.ServicePort))
 	}
 	return
 }
@@ -122,7 +137,7 @@ func justConnEffective(conn *grpc.ClientConn) bool {
 
 const (
 	grpcServiceConfig = `{
-	"loadBalancingPolicy": "round_robin",
+	"loadBalancingPolicy": "kelvins-balancer",
 	"healthCheckConfig": {
 		"serviceName": ""
 	}

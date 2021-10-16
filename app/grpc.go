@@ -60,7 +60,6 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 	if err != nil {
 		logging.Infof("grpcApp appShutdown err: %v\n", err)
 	}
-	logging.Info("grpcApp appShutdown over")
 }
 
 // runGRPC runs grpc application.
@@ -83,10 +82,16 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	}
 
 	// 3. register service port
-	portEtcd, err := appRegisterServiceToEtcd(grpcApp.Name, grpcApp.Port)
+	portEtcd, err := appRegisterServiceToEtcd(kelvins.AppTypeText[grpcApp.Type], grpcApp.Name, grpcApp.Port)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err := appUnRegisterServiceToEtcd(grpcApp.Name, grpcApp.Port)
+		if err != nil {
+			return
+		}
+	}()
 	grpcApp.Port = portEtcd
 
 	// 4. register grpc and http
@@ -324,18 +329,7 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 		}
 	}
 	grpcApp.GatewayServeMux = setupInternal.NewGateway()
-
-	isMonitor := false
-	if kelvins.ServerSetting != nil {
-		switch kelvins.ServerSetting.Environment {
-		case config.DefaultEnvironmentDev:
-			isMonitor = true
-		case config.DefaultEnvironmentTest:
-			isMonitor = true
-		default:
-		}
-	}
-	grpcApp.Mux = setupInternal.NewGatewayServerMux(grpcApp.GatewayServeMux, isMonitor)
+	grpcApp.Mux = setupInternal.NewGatewayServerMux(grpcApp.GatewayServeMux, debug)
 	if kelvins.HttpServerSetting == nil {
 		kelvins.HttpServerSetting = new(setting.HttpServerSettingS)
 	}

@@ -44,7 +44,6 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 	if err != nil {
 		logging.Infof("queueApp appShutdown err: %v\n", err)
 	}
-	logging.Info("queueApp appShutdown over")
 }
 
 var queueToWorker = map[*queue.MachineryQueue][]*machinery.Worker{}
