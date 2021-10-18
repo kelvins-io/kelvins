@@ -102,7 +102,8 @@ func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err 
 		return
 	}
 	for _, value := range serviceConfigs {
-		endpoints = append(endpoints, value.ServicePort)
+		var addr = fmt.Sprintf("%v:%v", c.ServerName, value.ServicePort)
+		endpoints = append(endpoints, addr)
 	}
 	return
 }

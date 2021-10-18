@@ -48,7 +48,7 @@ func RunHTTPApplication(application *kelvins.HTTPApplication) {
 			logging.Infof("HttpApp HttpServer Shutdown err: %v\n", err)
 		}
 	}
-	err = appShutdown(application.Application, application.Port)
+	err = appShutdown(application.Application)
 	if err != nil {
 		logging.Infof("HttpApp appShutdown err: %v\n", err)
 	}
@@ -78,6 +78,12 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err := appUnRegisterServiceToEtcd(httpApp.Name, httpApp.Port)
+		if err != nil {
+			return
+		}
+	}()
 	httpApp.Port = portEtcd
 
 	// 4. register http
@@ -162,14 +168,21 @@ func runHTTP(httpApp *kelvins.HTTPApplication) error {
 		return fmt.Errorf("kprocess listen(%s:%d) pidFile(%v) err: %v", network, httpApp.Port, kelvins.PIDFile, err)
 	}
 	logging.Infof("httpApp server listen(%s:%d) \n", network, httpApp.Port)
+	serverClose := make(chan struct{})
 	go func() {
-		err = httpApp.HttpServer.Serve(ln)
+		defer func() {
+			close(serverClose)
+		}()
+		err := httpApp.HttpServer.Serve(ln)
 		if err != nil {
 			logging.Infof("httpApp HttpServer serve err: %v", err)
 		}
 	}()
 
-	<-kp.Exit()
+	select {
+	case <-kp.Exit():
+	case <-serverClose:
+	}
 
 	return nil
 }

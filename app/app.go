@@ -274,7 +274,7 @@ func setupCommonQueue(namedTaskFunc map[string]interface{}) error {
 var appCloseChOne sync.Once
 var appCloseCh = make(chan struct{})
 
-func appShutdown(application *kelvins.Application, port int64) error {
+func appShutdown(application *kelvins.Application) error {
 	if !appProcessNext {
 		return nil
 	}
@@ -285,26 +285,6 @@ func appShutdown(application *kelvins.Application, port int64) error {
 		err := application.StopFunc()
 		if err != nil {
 			return err
-		}
-	}
-	if application.Type == kelvins.AppTypeHttp || application.Type == kelvins.AppTypeGrpc {
-		etcdServerUrls := config.GetEtcdV3ServerURLs()
-		if etcdServerUrls == "" {
-			if kelvins.ErrLogger != nil {
-				kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
-			}
-			return fmt.Errorf("etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
-		}
-		serviceLB := slb.NewService(etcdServerUrls, application.Name)
-		serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
-		sequence := fmt.Sprintf("%d", port)
-		err := serviceConfigClient.ClearConfig(sequence)
-		if err != nil {
-			if kelvins.ErrLogger != nil {
-				kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfigClient ClearConfig err: %v, key: %v",
-					err, serviceConfigClient.GetKeyName(application.Name, sequence))
-			}
-			return fmt.Errorf("etcd clear service port exception")
 		}
 	}
 	if kelvins.GPool != nil {
@@ -482,6 +462,28 @@ func appRegisterServiceToEtcd(appName string, initialPort int64) (int64, error) 
 		err = fmt.Errorf("etcd register service port(%v) exception", currentPort)
 	}
 	return flagPort, err
+}
+
+func appUnRegisterServiceToEtcd(appName string, port int64) error {
+	etcdServerUrls := config.GetEtcdV3ServerURLs()
+	if etcdServerUrls == "" {
+		if kelvins.ErrLogger != nil {
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+		}
+		return fmt.Errorf("etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
+	}
+	serviceLB := slb.NewService(etcdServerUrls, appName)
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	sequence := fmt.Sprintf("%d", port)
+	err := serviceConfigClient.ClearConfig(sequence)
+	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
+		if kelvins.ErrLogger != nil {
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfigClient ClearConfig err: %v, key: %v",
+				err, serviceConfigClient.GetKeyName(appName, sequence))
+		}
+		return fmt.Errorf("etcd clear service port exception")
+	}
+	return nil
 }
 
 var (
