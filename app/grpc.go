@@ -56,7 +56,7 @@ func RunGRPCApplication(application *kelvins.GRPCApplication) {
 			logging.Infof("grpcApp stopGRPC err: %v\n", err)
 		}
 	}
-	err = appShutdown(application.Application, application.Port)
+	err = appShutdown(application.Application)
 	if err != nil {
 		logging.Infof("grpcApp appShutdown err: %v\n", err)
 	}
@@ -142,15 +142,22 @@ func runGRPC(grpcApp *kelvins.GRPCApplication) error {
 	if err != nil {
 		return fmt.Errorf("kprocess listen(%s:%d) pidFile(%v) err: %v", network, grpcApp.Port, kelvins.PIDFile, err)
 	}
-	logging.Infof("start http server listen(%s:%d) \n", network, grpcApp.Port)
+	logging.Infof("grpcApp server listen(%s:%d) \n", network, grpcApp.Port)
+	serverClose := make(chan struct{})
 	go func() {
-		err = grpcApp.HttpServer.Serve(ln)
+		defer func() {
+			close(serverClose)
+		}()
+		err := grpcApp.HttpServer.Serve(ln)
 		if err != nil {
 			logging.Infof("grpcApp HttpServer serve err: %v", err)
 		}
 	}()
 
-	<-kp.Exit()
+	select {
+	case <-serverClose:
+	case <-kp.Exit():
+	}
 
 	return err
 }

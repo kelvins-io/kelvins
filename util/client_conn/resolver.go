@@ -109,7 +109,12 @@ func (r *kelvinsResolver) resolverServiceConfig() {
 
 	address := make([]resolver.Address, 0, len(serviceConfigs))
 	for _, value := range serviceConfigs {
-		addr := fmt.Sprintf("%v:%v", value.ServiceIP, value.ServicePort)
+		var addr string
+		if value.ServiceIP != "" {
+			addr = fmt.Sprintf("%v:%v", value.ServiceIP, value.ServicePort)
+		} else {
+			addr = fmt.Sprintf("%v:%v", serviceName, value.ServicePort)
+		}
 		// 可以在服务启动时注入机器info，然后在这里把机器info发给gRPC用于balance判断
 		address = append(address, resolver.Address{
 			Addr:       addr,

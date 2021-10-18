@@ -117,7 +117,11 @@ func (c *ConnClient) GetEndpoints(ctx context.Context) (endpoints []string, err 
 		return
 	}
 	for _, value := range serviceConfigs {
-		endpoints = append(endpoints, fmt.Sprintf("%v:%v", value.ServiceIP, value.ServicePort))
+		if value.ServiceIP != "" {
+			endpoints = append(endpoints, fmt.Sprintf("%v:%v", value.ServiceIP, value.ServicePort))
+		} else {
+			endpoints = append(endpoints, fmt.Sprintf("%v:%v", c.ServerName, value.ServicePort))
+		}
 	}
 	return
 }

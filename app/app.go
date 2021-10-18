@@ -277,7 +277,7 @@ func setupCommonQueue(namedTaskFunc map[string]interface{}) error {
 var appCloseChOne sync.Once
 var appCloseCh = make(chan struct{})
 
-func appShutdown(application *kelvins.Application, port int64) error {
+func appShutdown(application *kelvins.Application) error {
 	if !appProcessNext {
 		return nil
 	}
@@ -286,12 +286,6 @@ func appShutdown(application *kelvins.Application, port int64) error {
 	})
 	if application.StopFunc != nil {
 		err := application.StopFunc()
-		if err != nil {
-			return err
-		}
-	}
-	if application.Type == kelvins.AppTypeHttp || application.Type == kelvins.AppTypeGrpc {
-		err := appUnRegisterServiceToEtcd(application.Name, port)
 		if err != nil {
 			return err
 		}

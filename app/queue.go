@@ -40,7 +40,7 @@ func RunQueueApplication(application *kelvins.QueueApplication) {
 
 	appPrepareForceExit()
 	// Wait for connections to drain.
-	err = appShutdown(application.Application, 0)
+	err = appShutdown(application.Application)
 	if err != nil {
 		logging.Infof("queueApp appShutdown err: %v\n", err)
 	}

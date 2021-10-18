@@ -39,7 +39,7 @@ func RunCronApplication(application *kelvins.CronApplication) {
 		application.Cron.Stop()
 		logging.Info("cronApp Task Stop over")
 	}
-	err = appShutdown(application.Application, 0)
+	err = appShutdown(application.Application)
 	if err != nil {
 		logging.Infof("cronApp appShutdown err: %v\n", err)
 	}
