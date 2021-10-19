@@ -3,11 +3,10 @@ package gin_helper
 import (
 	"fmt"
 	"gitee.com/kelvins-io/kelvins"
+	"gitee.com/kelvins-io/kelvins/internal/vars"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"net"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -45,22 +44,10 @@ func GetRequestId(ctx *gin.Context) (requestId string) {
 }
 
 var (
-	hostName, _   = os.Hostname()
-	outBoundIP, _ = getOutBoundIP()
+	hostName, _ = os.Hostname()
 )
 
 func getRPCNodeInfo() (nodeInfo string) {
-	nodeInfo = fmt.Sprintf("%v(%v)", outBoundIP, hostName)
-	return
-}
-
-func getOutBoundIP() (ip string, err error) {
-	// broadcast
-	conn, err := net.Dial("udp", "255.255.255.255:53")
-	if err != nil {
-		return
-	}
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	ip = strings.Split(localAddr.String(), ":")[0]
+	nodeInfo = fmt.Sprintf("%v:%v(%v)", vars.ServiceIp, vars.ServicePort, hostName)
 	return
 }

@@ -17,6 +17,7 @@ import (
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/goroutine"
 	"gitee.com/kelvins-io/kelvins/util/startup"
+	"math/big"
 	"net"
 	"net/url"
 	"os"
@@ -433,18 +434,20 @@ func appUnRegisterServiceToEtcd(appName string, port int64) error {
 	}
 	serviceLB := slb.NewService(etcdServerUrls, appName)
 	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
-	sequence := fmt.Sprintf("%d", port)
-	err := serviceConfigClient.ClearConfig(sequence)
+	var registerSequence = getServiceSequence(serviceIP, strconv.Itoa(int(port)))
+	err := serviceConfigClient.ClearConfig(registerSequence)
 	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
 		if kelvins.ErrLogger != nil {
 			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfigClient ClearConfig err: %v, key: %v",
-				err, serviceConfigClient.GetKeyName(appName, sequence))
+				err, serviceConfigClient.GetKeyName(appName, registerSequence))
 		}
 		return fmt.Errorf("etcd clear service port exception")
 	}
 
 	return nil
 }
+
+var serviceIP string
 
 func appRegisterServiceToEtcd(serviceKind, appName string, initialPort int64) (int64, error) {
 	var flagPort int64
@@ -461,26 +464,33 @@ func appRegisterServiceToEtcd(serviceKind, appName string, initialPort int64) (i
 		}
 		return flagPort, fmt.Errorf("etcd not found environment variable(%v)", config.ENV_ETCDV3_SERVER_URLS)
 	}
-	serviceLB := slb.NewService(etcdServerUrls, appName)
-	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
-	serviceConfig, err := serviceConfigClient.GetConfig(currentPort)
-	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
-		if kelvins.ErrLogger != nil {
-			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig err: %v ,sequence(%v)", err, currentPort)
-		}
-		return flagPort, fmt.Errorf("etcd register service port(%v) exception", currentPort)
-	}
-	if serviceConfig != nil && serviceConfig.ServicePort == currentPort {
-		if kelvins.ErrLogger != nil {
-			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig sequence(%v) exist", currentPort)
-		}
-		return flagPort, fmt.Errorf("etcd register service port(%v) exist", currentPort)
-	}
-	serviceIP, err := getOutBoundIP()
+	var err error
+	serviceIP, err = getOutBoundIP()
 	if err != nil {
 		return 0, fmt.Errorf("lookup out bound ip err(%v)", err)
 	}
-	err = serviceConfigClient.WriteConfig(currentPort, etcdconfig.Config{
+
+	var registerSequence = getServiceSequence(serviceIP, currentPort)
+	serviceLB := slb.NewService(etcdServerUrls, appName)
+	serviceConfigClient := etcdconfig.NewServiceConfigClient(serviceLB)
+	serviceConfig, err := serviceConfigClient.GetConfig(registerSequence)
+	if err != nil && err != etcdconfig.ErrServiceConfigKeyNotExist {
+		if kelvins.ErrLogger != nil {
+			kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig err: %v ,sequence(%v)", err, registerSequence)
+		}
+		return flagPort, fmt.Errorf("etcd register service sequence(%v) exception", registerSequence)
+	}
+	if serviceConfig != nil {
+		isExist := getServiceSequence(serviceConfig.ServiceIP, serviceConfig.ServicePort) == getServiceSequence(serviceIP, currentPort)
+		if isExist {
+			if kelvins.ErrLogger != nil {
+				kelvins.ErrLogger.Errorf(context.TODO(), "etcd serviceConfig.GetConfig sequence(%v) exist", registerSequence)
+			}
+			return flagPort, fmt.Errorf("etcd register service sequence(%v) exist", registerSequence)
+		}
+	}
+
+	err = serviceConfigClient.WriteConfig(registerSequence, etcdconfig.Config{
 		ServiceVersion: kelvins.Version,
 		ServicePort:    currentPort,
 		ServiceIP:      serviceIP,
@@ -493,11 +503,19 @@ func appRegisterServiceToEtcd(serviceKind, appName string, initialPort int64) (i
 		}
 		err = fmt.Errorf("etcd register service port(%v) exception", currentPort)
 	}
+	vars.ServicePort = currentPort
+	vars.ServiceIp = serviceIP
 	return flagPort, err
 }
 
+func getServiceSequence(ip, port string) (key string) {
+	ret := big.NewInt(0)
+	ret.SetBytes(net.ParseIP(ip).To4())
+	key = fmt.Sprintf("%v_%v", ret.Int64(), port)
+	return
+}
+
 func getOutBoundIP() (ip string, err error) {
-	// broadcast
 	conn, err := net.Dial("udp", "255.255.255.255:53")
 	if err != nil {
 		return

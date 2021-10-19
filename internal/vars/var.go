@@ -19,3 +19,9 @@ var BusinessLogger log.LoggerContextIface
 
 // AppCloseCh is a internal vars for app close notice
 var AppCloseCh chan struct{}
+
+// ServiceIp is current service ip addr
+var ServiceIp string
+
+// ServicePort is current service port
+var ServicePort string

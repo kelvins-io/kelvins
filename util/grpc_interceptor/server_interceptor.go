@@ -12,11 +12,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"net"
 	"os"
 	"regexp"
 	"runtime/debug"
-	"strings"
 	"time"
 )
 
@@ -199,25 +197,13 @@ func (i *AppServerInterceptor) echoStatistics(ctx context.Context, incomeTime, o
 }
 
 func getRPCNodeInfo() (nodeInfo string) {
-	nodeInfo = fmt.Sprintf("%v(%v)", outBoundIP, hostName)
+	nodeInfo = fmt.Sprintf("%v:%v(%v)", vars.ServiceIp, vars.ServicePort, hostName)
 	return
 }
 
 var (
-	hostName, _   = os.Hostname()
-	outBoundIP, _ = getOutBoundIP()
+	hostName, _ = os.Hostname()
 )
-
-func getOutBoundIP() (ip string, err error) {
-	// broadcast
-	conn, err := net.Dial("udp", "255.255.255.255:53")
-	if err != nil {
-		return
-	}
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	ip = strings.Split(localAddr.String(), ":")[0]
-	return
-}
 
 func getRPCRequestId(ctx context.Context) (ok bool, requestId string) {
 	ok = false
