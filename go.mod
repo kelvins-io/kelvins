@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	gitee.com/kelvins-io/common v1.1.5
+	gitee.com/kelvins-io/g2cache v4.0.5+incompatible
 	github.com/RichardKnop/machinery v1.9.1
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.685 // indirect
@@ -12,6 +13,7 @@ require (
 	github.com/bluele/gcache v0.0.0-20190518031135-bc40bd653833
 	github.com/bojand/ghz v0.100.0
 	github.com/cloudflare/tableflip v1.2.2
+	github.com/coocood/freecache v1.1.1 // indirect
 	github.com/etcd-io/etcd v3.3.25+incompatible
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.7.1
@@ -26,6 +28,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/jinzhu/gorm v1.9.15
+	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/prometheus/client_golang v1.7.0
 	github.com/qiniu/qmgo v0.7.0
 	github.com/robfig/cron/v3 v3.0.1

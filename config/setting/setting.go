@@ -129,6 +129,26 @@ type RedisSettingS struct {
 	DB             int
 }
 
+type G2CacheSettingS struct {
+	CacheDebug             bool
+	CacheMonitor           bool
+	OutCachePubSub         bool
+	CacheMonitorSecond     int
+	EntryLazyFactor        int
+	GPoolWorkerNum         int
+	GPoolJobQueueChanLen   int
+	FreeCacheSize          int // byte size
+	PubSubRedisChannel     string
+	RedisConfDSN           string
+	RedisConfDB            int
+	RedisConfPwd           string
+	RedisConfMaxConn       int
+	PubSubRedisConfDSN     string
+	PubSubRedisConfDB      int
+	PubSubRedisConfPwd     string
+	PubSubRedisConfMaxConn int
+}
+
 // QueueServerSettingS defines what queue server needs.
 type QueueServerSettingS struct {
 	WorkerConcurrency int

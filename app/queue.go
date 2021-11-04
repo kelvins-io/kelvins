@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
+
 	"gitee.com/kelvins-io/common/convert"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/common/queue"
@@ -13,7 +15,6 @@ import (
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
 	"github.com/RichardKnop/machinery/v1"
 	queueLog "github.com/RichardKnop/machinery/v1/log"
-	"time"
 )
 
 // RunQueueApplication runs queue application.

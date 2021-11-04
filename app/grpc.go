@@ -3,6 +3,9 @@ package app
 import (
 	"context"
 	"fmt"
+	"math"
+	"time"
+
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/config/setting"
 	"gitee.com/kelvins-io/kelvins/internal/config"
@@ -17,8 +20,6 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
-	"math"
-	"time"
 )
 
 // RunGRPCApplication runs grpc application.
@@ -356,10 +357,10 @@ func setupGRPCVars(grpcApp *kelvins.GRPCApplication) error {
 }
 
 func stopGRPC(grpcApp *kelvins.GRPCApplication) error {
-	grpcApp.GRPCServer.GracefulStop()
 	if grpcApp.HealthServer != nil {
 		grpcApp.HealthServer.Shutdown()
 	}
+	grpcApp.GRPCServer.GracefulStop()
 
 	return nil
 }

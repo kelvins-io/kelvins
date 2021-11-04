@@ -6,7 +6,7 @@ go/golang微服务框架
 ### 支持特性
 注册服务，发现服务，grpc/http gateway，cron，queue，http/gin服务（兼容h1.1，h2），插拔式配置加载，双orm支持，mysql，mongo支持，事件总线，日志，异步任务池，   
 Prometheus/pprof监控，进程优雅重启，应用自定义配置，启动flag参数指定，应用hook，工具类（由kelvins-io/common支持），全局变量vars，   
-在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool，gRPC服务端&客户端参数配置，在线服务限流，kelvins-tools工具箱，watch服务在线状态
+在线应用负载均衡，启动命令，RPC健康检查，接入授权，ghz压力测试tool，gRPC服务端&客户端参数配置，在线服务限流，kelvins-tools工具箱，watch服务在线状态，g2cache多级缓存
 
 #### 即将支持
 熔断，异常接入sentry
@@ -45,12 +45,6 @@ export ETCDV3_SERVER_URLS=http://10.211.55.4:2379,http://10.211.55.7:2379
 如果自己搭建etcd集群最少需要两个节点（一主一从）本地搭建参考：https://gitee.com/cristiane/micro-mall-api/blob/master/%E5%BE%AE%E5%95%86%E5%9F%8EETCD%E9%83%A8%E7%BD%B2.pdf
 ```
 
-~~GO_ENV~~
-```
-运行环境标识，可选值有：dev，test，release，prod；分别对应开发环境，测试环境，预发布/灰度环境，prod正式环境
-```
-新版本的kelvins不再依赖GO_ENV   
-
 ### 生成应用
 参考kelvins-tools工具箱：https://gitee.com/kelvins-io/kelvins-tools/blob/master/README.md
 
@@ -65,6 +59,7 @@ export ETCDV3_SERVER_URLS=http://10.211.55.4:2379,http://10.211.55.7:2379
 kelvins-server
 Environment可选值：dev，test，release，prod   
 AppName如果不为空则优先级高于代码注入的名字   
+PIDFile：注意Windows环境下的路径格式   
 ```ini
 [kelvins-server]
 AppName = "kelvins-template"
@@ -75,6 +70,7 @@ PIDFile = "./kelvins-app.pid"
 kelvins-logger   
 日志：级别，路径等   
 Level可选值：debug，warn，info，error
+RootPath：注意Windows环境下的路径格式   
 ```ini
 [kelvins-logger]
 RootPath = "./logs"
@@ -137,6 +133,28 @@ IdleTimeout = 300
 ConnectTimeout = 30
 ReadTimeout = 30
 WriteTimeout = 30
+```
+
+kelvins-g2cache   
+CacheDebug： 是否开启debug模式   
+CacheMonitor： 是否打开监控统计   
+FreeCacheSize： 默认local缓存（freecache）最大内存字节数   
+OutCachePubSub： 是否为实例开启发布订阅功能   
+```ini
+[kelvins-g2cache]
+CacheDebug = false
+CacheMonitor = false
+FreeCacheSize = 52428800
+RedisConfDSN = "127.0.0.1:6379"
+RedisConfDB = 3
+RedisConfPwd = "xxxx"
+RedisConfMaxConn = 10
+OutCachePubSub = false
+PubSubRedisChannel = "kelvins-g2cache-pubsub-channel"
+PubSubRedisConfDSN = "127.0.0.1:6379"
+PubSubRedisConfDB = 5
+PubSubRedisConfPwd = "xxxx"
+PubSubRedisConfMaxConn = 3
 ```
 
 kelvins-mongodb   
@@ -461,7 +479,7 @@ http/h2服务调用 /hello接口 =>
 2021-10-1 | RPC，http服务支持限流器 | https://gitee.com/cristiane | 限流
 2021-10-15 | watch在线服务在线状态 | https://gitee.com/cristiane | 监听etcd服务节点触发resolver
 2021-10-15 | 在线服务注册etcd增加所处网络IP，服务类型 | https://gitee.com/cristiane | 不需要再单独配置服务host
-
+2021-11-5 | 引入g2cache多级缓存库，修复bug | https://gitee.com/cristiane | 基于配置启用g2cache模块
 
 
 ### 业务应用

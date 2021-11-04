@@ -4,6 +4,7 @@ import (
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/common/queue"
+	"gitee.com/kelvins-io/g2cache"
 	"gitee.com/kelvins-io/kelvins/config/setting"
 	"gitee.com/kelvins-io/kelvins/util/goroutine"
 	"github.com/gomodule/redigo/redis"
@@ -76,6 +77,12 @@ var MysqlSetting *setting.MysqlSettingS
 
 // RedisSetting is maps config section "kelvins-redis" May be nil
 var RedisSetting *setting.RedisSettingS
+
+// G2CacheSetting is maps config section "kelvins-g2cache" May be nil
+var G2CacheSetting *setting.G2CacheSettingS
+
+// G2CacheSetting is maps config section "kelvins-g2cache" May be nil
+var G2CacheEngine *g2cache.G2Cache
 
 // QueueRedisSetting is maps config section "kelvins-queue-redis" May be nil
 var QueueRedisSetting *setting.QueueRedisSettingS

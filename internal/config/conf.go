@@ -21,7 +21,9 @@ const (
 	SectionLogger = "kelvins-logger"
 	// SectionMysql is a sectoin name for mysql.
 	SectionMysql = "kelvins-mysql"
-	// SectionRedis is a section name for redis.
+	// SectionG2cache is a section name for g2cache
+	SectionG2cache = "kelvins-g2cache"
+	// SectionRedis is a section name for redis
 	SectionRedis = "kelvins-redis"
 	// SectionMongodb is a section name for mongodb
 	SectionMongoDB = "kelvins-mongodb"
@@ -146,6 +148,11 @@ func LoadDefaultConfig(application *kelvins.Application) error {
 		if sectionName == SectionRedis {
 			kelvins.RedisSetting = new(setting.RedisSettingS)
 			MapConfig(sectionName, kelvins.RedisSetting)
+			continue
+		}
+		if sectionName == SectionG2cache {
+			kelvins.G2CacheSetting = new(setting.G2CacheSettingS)
+			MapConfig(sectionName, kelvins.G2CacheSetting)
 			continue
 		}
 		if sectionName == SectionMongoDB {

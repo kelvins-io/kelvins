@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
@@ -10,7 +12,6 @@ import (
 	"gitee.com/kelvins-io/kelvins/util/kprocess"
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
-	"time"
 )
 
 // RunCronApplication runs cron application.

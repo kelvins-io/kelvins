@@ -3,12 +3,12 @@ package app
 import (
 	"context"
 	"fmt"
-	"gitee.com/kelvins-io/kelvins/config/setting"
 	"io"
 	"net/http"
 	"os"
 	"time"
 
+	"gitee.com/kelvins-io/kelvins/config/setting"
 	"gitee.com/kelvins-io/kelvins"
 	"gitee.com/kelvins-io/kelvins/internal/config"
 	"gitee.com/kelvins-io/kelvins/internal/logging"

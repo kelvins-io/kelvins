@@ -5,6 +5,17 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math/big"
+	"net"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"gitee.com/kelvins-io/common/event"
 	"gitee.com/kelvins-io/common/log"
 	"gitee.com/kelvins-io/kelvins"
@@ -17,15 +28,6 @@ import (
 	"gitee.com/kelvins-io/kelvins/setup"
 	"gitee.com/kelvins-io/kelvins/util/goroutine"
 	"gitee.com/kelvins-io/kelvins/util/startup"
-	"math/big"
-	"net"
-	"net/url"
-	"os"
-	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const (
@@ -149,10 +151,13 @@ func setupApplicationProcess(application *kelvins.Application) {
 	vars.Version = kelvins.Version
 	if kelvins.ServerSetting != nil {
 		if kelvins.ServerSetting.PIDFile != "" {
-			kelvins.PIDFile = kelvins.ServerSetting.PIDFile
+			kelvins.PIDFile = filepath.Dir(kelvins.ServerSetting.PIDFile)
 		} else {
 			wd, _ := os.Getwd()
 			kelvins.PIDFile = fmt.Sprintf("%s/%s.pid", wd, application.Name)
+			//if runtime.GOOS == "windows"  {
+			//	kelvins.PIDFile = filepath.ToSlash(kelvins.PIDFile)
+			//}
 		}
 	}
 }
@@ -191,6 +196,13 @@ func setupCommonVars(application *kelvins.Application) error {
 
 	if kelvins.GPoolSetting != nil && kelvins.GPoolSetting.JobChanLen > 0 && kelvins.GPoolSetting.WorkerNum > 0 {
 		kelvins.GPool = goroutine.NewPool(kelvins.GPoolSetting.WorkerNum, kelvins.GPoolSetting.JobChanLen)
+	}
+
+	if kelvins.G2CacheSetting != nil && kelvins.G2CacheSetting.RedisConfDSN != "" {
+		kelvins.G2CacheEngine, err = setup.NewG2Cache(kelvins.G2CacheSetting, nil, nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	kelvins.FrameworkLogger, err = log.GetCustomLogger("framework", "framework")

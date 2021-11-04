@@ -58,6 +58,7 @@ func parsePidFile(pidFile string) (pid int, err error) {
 	if err != nil {
 		return
 	}
+	defer f.Close()
 	content, err := ioutil.ReadAll(f)
 	if err != nil {
 		return
